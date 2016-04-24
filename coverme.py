@@ -221,7 +221,7 @@ if __name__ == '__main__':
     import click
 
     @click.command()
-    @click.option('--config', default='backup.yml',
+    @click.option('-c', '--config', default='backup.yml',
                   help="Backups configuration file.")
     def main(config):
         backup, errors = Backup.create_with_config(config)

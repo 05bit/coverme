@@ -21,6 +21,12 @@ pip3 install coverme
 Quickstart
 ----------
 
+Just to make sure installation is correct run:
+
+```
+coverme --help
+```
+
 **Please note!** The examples below do not provide best security practices! Intermediate backups are stored in shared `/tmp` dir and backups are not encrypted.
 
 1. Define your backup rules in JSON or YAML config, e.g. `backup.yml`:
