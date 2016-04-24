@@ -3,9 +3,10 @@ import os
 import sys
 import json
 import yaml
+import datetime
 import shutil
 import subprocess
-import datetime
+import tempfile
 
 try:
     from urlparse import urlparse
@@ -17,10 +18,9 @@ __version__ = '0.0.1'
 
 class Backup(object):
     def __init__(self, **settings):
-        self.settings = settings
+        self.defaults = settings.get('defaults', {})
         self.sources = self._new_sources(settings['backups'])
         self.vaults = self._new_vaults(settings['vaults'])
-        print(settings)
 
     @classmethod
     def create_with_config(cls, path, file_format=None):
@@ -129,11 +129,22 @@ class BackupSource(object):
         }
         return self.settings['name'].format(**params)
 
-    def _make_archive(self, base_name):
-        """Make archive.
+    def _make_archive(self, dir_name):
+        """Make archive of directory.
         """
-        arch_format = self.settings.get('format', 'gztar')
-        return shutil.make_archive(base_name, format=arch_format)
+        arch_format = self.settings.get('format', 'zip')
+        return shutil.make_archive(dir_name,
+                                   root_dir=dir_name,
+                                   base_dir=None,
+                                   format=arch_format)
+
+    def _make_temp_dir(self, prefix):
+        """Make temp directory under temp base path.
+        """
+        base_dir = os.path.realpath(self.backup.defaults['tmpdir'])
+        if not os.path.exists(base_dir):
+            os.makedirs(base_dir)
+        return tempfile.mkdtemp(prefix=prefix, dir=base_dir)
 
 class PostgresqlBackupSource(BackupSource):
     def archive(self):
@@ -141,11 +152,11 @@ class PostgresqlBackupSource(BackupSource):
         """
         url = urlparse(self.settings['url'])
         db = url.path.strip('/')
-        dump_name = self.get_base_name()
-        with open(dump_name, 'wb') as output:
+        temp_dir = self._make_temp_dir(self.get_base_name())
+        dump_file = os.path.join(temp_dir, self.get_base_name())
+        with open(dump_file, 'wb') as output:
             result = subprocess.call(['pg_dump', db], stdout=output)
-        arch_name = self._make_archive(dump_name)
-        print(arch_name)
+        arch_name = self._make_archive(temp_dir)
         return arch_name
 
 class MySQLBackupSource(BackupSource):
@@ -173,17 +184,23 @@ class S3Vault(BaseVault):
 if __name__ == '__main__':
     import click
 
-    backup, errors = Backup.create_with_config('backup.yml')
+    @click.command()
+    @click.option('--config', default='backup.yml',
+                  help="Backups configuration file.")
+    def main(config):
+        backup, errors = Backup.create_with_config(config)
 
-    if errors:
-        path = errors.pop('path')
-        click.echo("Errors in configuration file `%s`" % path)
-        for k, v in errors.items():
-            click.echo("- %s" % v)
-        click.echo("\n"
-                   "    Run `coverme --help` for basic examples\n"
-                   "    See also README.md and docs for details\n"
-                   "    https://github.com/05bit/coverme\n")
-        sys.exit(1)
-    else:
-        backup.run()
+        if errors:
+            path = errors.pop('path')
+            click.echo("Errors in configuration file `%s`" % path)
+            for k, v in errors.items():
+                click.echo("- %s" % v)
+            click.echo("\n"
+                       "    Run `coverme --help` for basic examples\n"
+                       "    See also README.md and docs for details\n"
+                       "    https://github.com/05bit/coverme\n")
+            sys.exit(1)
+        else:
+            backup.run()
+
+    main()
