@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 """
 Asynchronous interface for peewee ORM powered by asyncio.
 """
@@ -24,6 +26,7 @@ setup(
     zip_safe=False,
     install_requires=(
         'click',
+        'pyyaml',
     ),
     py_modules=[
         'coverme',

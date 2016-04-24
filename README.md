@@ -12,7 +12,7 @@ Instal via pip:
 pip install coverme
 ```
 
-or if only Python3.x pip is available: 
+or if only Python 3.x pip is available: 
 
 ```
 pip3 install coverme
@@ -20,6 +20,8 @@ pip3 install coverme
 
 Quickstart
 ----------
+
+**Please note!** The examples below do not provide best security practices! Intermediate backups are stored in shared `/tmp` dir and backups are not encrypted.
 
 1. Define your backup rules in JSON or YAML config, e.g. `backup.yml`:
 
@@ -39,6 +41,10 @@ Quickstart
         name: myapp-{yyyy}-{mm}-{dd}--{HH}-{MM}
         format: zip             # optional, default: gztar
         tags: myapp, uploads    # optional, no default
+
+    tmp:
+        path: /tmp
+        cleanup: yes
 
     vaults:
       bucket1:
@@ -76,9 +82,9 @@ Quickstart
 
     Real path to `coverme` may be different depending on installation, to get proper full path run:
 
-```
-which coverme
-```
+    ```
+    which coverme
+    ```
 
 License
 -------
