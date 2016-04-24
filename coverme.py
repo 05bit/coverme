@@ -3,6 +3,9 @@ import os
 import sys
 import json
 import yaml
+import shutil
+import subprocess
+import datetime
 
 try:
     from urlparse import urlparse
@@ -17,6 +20,7 @@ class Backup(object):
         self.settings = settings
         self.sources = self._new_sources(settings['backups'])
         self.vaults = self._new_vaults(settings['vaults'])
+        print(settings)
 
     @classmethod
     def create_with_config(cls, path, file_format=None):
@@ -63,7 +67,9 @@ class Backup(object):
         return errors
 
     def run(self):
-        pass
+        for s in self.sources:
+            archive_path = s.archive()
+            print('Archive: %s' % archive_path)
 
     def _new_sources(self, config_list):
         """Create new sources by list of dicts. Return list
@@ -104,16 +110,55 @@ class Backup(object):
 
 class BackupSource(object):
     def __init__(self, backup, **settings):
-        pass
+        self.backup = backup
+        self.settings = settings
+
+    def get_base_name(self):
+        """Get base name for archive.
+        """
+        now = datetime.datetime.now()
+        params = {
+            'yyyy': now.year,
+            'mm': '%02d' % now.month,
+            'dd': '%02d' % now.day,
+            'HH': '%02d' % now.hour,
+            'MM': '%02d' % now.minute,
+            'SS': '%02d' % now.second,
+            'US': now.microsecond,
+            'tags': self.settings['tags'],
+        }
+        return self.settings['name'].format(**params)
+
+    def _make_archive(self, base_name):
+        """Make archive.
+        """
+        arch_format = self.settings.get('format', 'gztar')
+        return shutil.make_archive(base_name, format=arch_format)
 
 class PostgresqlBackupSource(BackupSource):
-    pass
+    def archive(self):
+        """Make database dump via `pg_dump` and return archive path.
+        """
+        url = urlparse(self.settings['url'])
+        db = url.path.strip('/')
+        dump_name = self.get_base_name()
+        with open(dump_name, 'wb') as output:
+            result = subprocess.call(['pg_dump', db], stdout=output)
+        arch_name = self._make_archive(dump_name)
+        print(arch_name)
+        return arch_name
 
 class MySQLBackupSource(BackupSource):
-    pass
+    def archive(self):
+        """Make database dump via `mysqldump` and return archive path.
+        """
+        pass
 
 class DirBackupSource(BackupSource):
-    pass
+    def archive(self):
+        """Make directory archive and return archive path.
+        """
+        pass
 
 class BaseVault(object):
     def __init__(self, backup, **settings):
@@ -127,7 +172,7 @@ class S3Vault(BaseVault):
 
 if __name__ == '__main__':
     import click
-    
+
     backup, errors = Backup.create_with_config('backup.yml')
 
     if errors:
