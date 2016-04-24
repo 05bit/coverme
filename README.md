@@ -27,24 +27,27 @@ Quickstart
 
     ```yaml
     ---
+    defaults:
+        # tmpdir: base directory for temporary files
+        tmpdir: tmp
+        # cleanup: remove archive after upload or not, default: no
+        cleanup: yes
+        # format: optional, default: zip
+        format: gztar
+
     backups:
-      - from: database
-        url: postgres://postgres:127.0.0.1/test
+      - type: database
+        url: postgres://postgres@127.0.0.1:5432/test
         to: [bucket1]
         name: myapp-{yyyy}-{mm}-{dd}--{HH}-{MM}.sql
-        format: zip             # optional, default: gztar
         tags: myapp, db         # optional, no default
 
-      - from: dir
+      - type: dir
         path: /home/myapp/var/www/uploads
         to: [glacier1]
         name: myapp-{yyyy}-{mm}-{dd}--{HH}-{MM}
-        format: zip             # optional, default: gztar
+        format: gztar           # optional, default: zip
         tags: myapp, uploads    # optional, no default
-
-    tmp:
-        path: /tmp
-        cleanup: yes
 
     vaults:
       bucket1:

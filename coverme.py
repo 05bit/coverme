@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from future.builtins import super
 import os
 import sys
 import json
@@ -67,9 +68,24 @@ class Backup(object):
         return errors
 
     def run(self):
-        for s in self.sources:
-            archive_path = s.archive()
-            print('Archive: %s' % archive_path)
+        """Run backup for all sources.
+        """
+        for source in self.sources:
+            arch_path = self.archive(source)
+
+    def archive(self, source):
+        """Copy data from source and make archive. Return archive path.
+        """
+        temp_dir = self._make_temp_dir(source.get_base_name())
+        not_empty = source.copy_data(temp_dir)
+        if not_empty:
+            arch_path = self._make_archive(temp_dir)
+            print('Archived %s' % arch_path)
+        else:
+            arch_path = None
+            print("Nothing to archive from source %s" % source)
+        shutil.rmtree(temp_dir, ignore_errors=True)
+        return arch_path
 
     def _new_sources(self, config_list):
         """Create new sources by list of dicts. Return list
@@ -77,7 +93,7 @@ class Backup(object):
         """
         sources = []
         for c in config_list:
-            c_type = c['from']
+            c_type = c.get('type')
             if c_type == 'database':
                 url = urlparse(c['url'])
                 if url.scheme == 'postgres':
@@ -98,15 +114,35 @@ class Backup(object):
         """
         vaults = {}
         for k, v in config_dict.items():
-            v_type = v['type']
+            v_type = v.get('type')
             if v_type == 'glacier':
                 vault = GlacierVault(self, **v)
             elif v_type == 's3':
                 vault = S3Vault(self, **v)
             else:
-                raise ValueError("Unknown vault type `%s`" % v_type)
+                if v_type:
+                    raise ValueError("Unknown vault type `%s`" % v_type)
+                else:
+                    raise ValueError("Key `type` is missing for vault `%s`" % k)
             vaults[k] = vault
         return vaults
+
+    def _make_temp_dir(self, prefix):
+        """Make temp directory under temp base path.
+        """
+        base_dir = os.path.realpath(self.defaults['tmpdir'])
+        if not os.path.exists(base_dir):
+            os.makedirs(base_dir)
+        return tempfile.mkdtemp(prefix=prefix, dir=base_dir)
+
+    def _make_archive(self, dir_name):
+        """Make archive of directory.
+        """
+        arch_format = self.defaults.get('format', 'zip')
+        return shutil.make_archive(dir_name,
+                                   root_dir=dir_name,
+                                   base_dir=None,
+                                   format=arch_format)
 
 class BackupSource(object):
     def __init__(self, backup, **settings):
@@ -129,47 +165,47 @@ class BackupSource(object):
         }
         return self.settings['name'].format(**params)
 
-    def _make_archive(self, dir_name):
-        """Make archive of directory.
-        """
-        arch_format = self.settings.get('format', 'zip')
-        return shutil.make_archive(dir_name,
-                                   root_dir=dir_name,
-                                   base_dir=None,
-                                   format=arch_format)
-
-    def _make_temp_dir(self, prefix):
-        """Make temp directory under temp base path.
-        """
-        base_dir = os.path.realpath(self.backup.defaults['tmpdir'])
-        if not os.path.exists(base_dir):
-            os.makedirs(base_dir)
-        return tempfile.mkdtemp(prefix=prefix, dir=base_dir)
-
 class PostgresqlBackupSource(BackupSource):
-    def archive(self):
-        """Make database dump via `pg_dump` and return archive path.
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.url = urlparse(self.settings['url'])
+        self.db = self.url.path.strip('/')
+        if not self.db:
+            raise ValueError("Database is not defined %s" %
+                self.settings['url'])
+
+    def copy_data(self, temp_dir):
+        """Make database dump via `pg_dump`. Return `True` if not empty.
         """
-        url = urlparse(self.settings['url'])
-        db = url.path.strip('/')
-        temp_dir = self._make_temp_dir(self.get_base_name())
         dump_file = os.path.join(temp_dir, self.get_base_name())
-        with open(dump_file, 'wb') as output:
-            result = subprocess.call(['pg_dump', db], stdout=output)
-        arch_name = self._make_archive(temp_dir)
-        return arch_name
+        args = ['pg_dump', '--file=%s' % dump_file]
+        if self.url.port:
+            args.append('--port=%s' % self.url.port)
+        if self.url.hostname:
+            args.append('--host=%s' % self.url.hostname)
+        if self.url.username:
+            args.append('--username=%s' % self.url.username)
+        args.append(self.db)
+        result = subprocess.call(args)
+        return (result == 0)
+
+    def __str__(self):
+        return '%s://%s%s' % (self.url.scheme, self.url.hostname, self.url.path)
 
 class MySQLBackupSource(BackupSource):
-    def archive(self):
+    def copy_data(self, temp_dir):
         """Make database dump via `mysqldump` and return archive path.
         """
         pass
 
 class DirBackupSource(BackupSource):
-    def archive(self):
+    def copy_data(self, temp_dir):
         """Make directory archive and return archive path.
         """
         pass
+
+    def __str__(self):
+        return self.settings['path']
 
 class BaseVault(object):
     def __init__(self, backup, **settings):

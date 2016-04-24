@@ -1,6 +1,9 @@
 # Local configs
 backup.yml
 
+# Temp
+tmp/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
