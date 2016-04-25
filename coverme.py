@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
-from future.builtins import super
+try:
+    from future.builtins import super
+except ImportError:
+    pass
 import os
 import sys
 import json
