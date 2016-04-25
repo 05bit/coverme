@@ -16,7 +16,7 @@ except ImportError:
     import urllib.parse
     urlparse = urllib.parse.urlparse
 
-__version__ = '0.0.1'
+__version__ = '0.5'
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
@@ -117,7 +117,7 @@ class Backup(object):
                         echo("Not uploaded to %s" % vault)
             else:
                 echo("*** nothing to upload from source %s" % source)
-            shutil.rmtree(temp_dir, ignore_errors=True)
+            # shutil.rmtree(temp_dir, ignore_errors=True)
 
     def get_temp_dir(self):
         """Get base temp directory path.
@@ -281,7 +281,23 @@ class DirBackupSource(BackupSource):
     def archive(self, temp_dir):
         """Archive source directory to temp directory.
         """
-        pass
+        #
+        # We want to achive `/my/sub/{some dir}` under unique temp dir:
+        # `/tmp/dEdjnr/{name from config}`
+        #
+        # So we make archive from base path `/my/sub/{some dir}`
+        # with archive base name `/tmp/dEdjnr/{name from config}.zip`
+        #
+        from_path = self.settings['path']
+        base_name = os.path.join(temp_dir, self.get_base_name())
+        arch_path = shutil.make_archive(
+            base_name=base_name,
+            root_dir=os.path.dirname(from_path),
+            base_dir=from_path,
+            # logger=log,
+            format=self.get_archive_format())
+        echo("OK: archived %s" % arch_path)
+        return arch_path
 
     def __str__(self):
         return self.settings['path']
