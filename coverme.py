@@ -72,6 +72,13 @@ class Backup(object):
         """
         for source in self.sources:
             arch_path = self.archive(source)
+            if arch_path:
+                for vault in self.vaults.values():
+                    success, data = vault.upload(arch_path)
+                    if success:
+                        print("Uploaded to %s: %s" % (vault, data))
+                    else:
+                        print("Not uploaded to %s" % vault)
 
     def archive(self, source):
         """Copy data from source and make archive. Return archive path.
@@ -80,7 +87,7 @@ class Backup(object):
         not_empty = source.copy_data(temp_dir)
         if not_empty:
             arch_path = self._make_archive(temp_dir)
-            print('Archived %s' % arch_path)
+            print("Archived %s" % arch_path)
         else:
             arch_path = None
             print("Nothing to archive from source %s" % source)
@@ -114,16 +121,16 @@ class Backup(object):
         """
         vaults = {}
         for k, v in config_dict.items():
-            v_type = v.get('type')
-            if v_type == 'glacier':
+            v_service = v.get('service')
+            if v_service == 'glacier':
                 vault = GlacierVault(self, **v)
-            elif v_type == 's3':
-                vault = S3Vault(self, **v)
+            elif v_service == 's3':
+                vault = S3Bucket(self, **v)
             else:
-                if v_type:
-                    raise ValueError("Unknown vault type `%s`" % v_type)
+                if v_service:
+                    raise ValueError("Unknown vault service `%s`" % v_service)
                 else:
-                    raise ValueError("Key `type` is missing for vault `%s`" % k)
+                    raise ValueError("Key `service` is missing for vault `%s`" % k)
             vaults[k] = vault
         return vaults
 
@@ -212,13 +219,60 @@ class BaseVault(object):
         self.backup = backup
         self.settings = settings
 
-class GlacierVault(BaseVault):
-    def __init__(*args, **kwargs):
-        super().__init__(*args, **kwargs)
+class AWSVault(object):
+    def __init__(self, backup, **settings):
+        self.backup = backup
+        self.settings = settings
+        params = {
+            'region': settings.get('region'),
+            'access_key_id': settings.get('access_key_id'),
+            'secret_access_key': settings.get('secret_access_key'),
+        }
+        self.service = _aws_service(settings['service'], **params)
 
-class S3Vault(BaseVault):
-    def __init__(*args, **kwargs):
+class GlacierVault(AWSVault):
+    def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        account_id = self.settings.get('account', '')
+        name = self.settings.get('name')
+        self.vault = self.service.Vault(str(account_id), name)
+
+    def __str__(self):
+        return "Amazon Glacier [%(region)s] %(name)s" % {
+            'name': self.vault.name,
+            'region': self.settings.get('region', 'default region')
+        }
+
+    def upload(self, archive_path):
+        """Upload archive to Amazon Glacier. Return 2-tuple:
+        ((bool) success, (dict) archive data).
+        """
+        self.vault.load()
+        with open(archive_path, 'rb') as data:
+            archive = self.vault.upload_archive(
+                body=data, archiveDescription=archive_path)
+        if archive:
+            return True, {'id': archive.id}
+        else:
+            return False, None
+
+class S3Bucket(AWSVault):
+    def upload(self, archive_path):
+        return False, None
+
+def _aws_service(name, region=None,
+                 access_key_id=None,
+                 secret_access_key=None):
+    """Get `boto3` Amazon service manager, e.g. S3 or Glacier.
+
+    Example:
+
+        s3 = get_aws_service('s3')
+    """
+    import boto3
+    return boto3.resource(name, region_name=region,
+                          aws_access_key_id=access_key_id,
+                          aws_secret_access_key=secret_access_key)
 
 if __name__ == '__main__':
     import click
@@ -240,6 +294,11 @@ if __name__ == '__main__':
                        "    https://github.com/05bit/coverme\n")
             sys.exit(1)
         else:
-            backup.run()
+            try:
+                backup.run()
+            except Exception as e:
+                click.echo("\n"
+                           "Exited with error! %s" % e)
+                sys.exit(1)
 
     main()

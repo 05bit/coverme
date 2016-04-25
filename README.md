@@ -64,13 +64,15 @@ coverme --help
 
     vaults:
       bucket1:
-        type: s3
+        service: s3
         region: eu-west-1
+        account: NNNNNNNNNNNN
         bucket: coverme-test
 
       glacier1:
-        type: glacier
+        service: glacier
         region: eu-west-1
+        account: NNNNNNNNNNNN
         vault: coverme-test
     ...
     ```
@@ -135,9 +137,6 @@ aws_access_key_id = YOUR_ANOTHER_ACCESS_KEY
 aws_secret_access_key = YOUR_ANOTHER_SECRET_KEY
 ```
 
-AWS Policy Generator:  
-https://awspolicygen.s3.amazonaws.com/policygen.html
-
 ### How to get Amazon credentials?
 
 Use Amazon Identity and Access Management (IAM) service to manage users:  
@@ -153,6 +152,9 @@ Then choose _Policy Generator_, and then:
 - Select "Amazon Glacier" in dropdown
 - Check required pesmissions or mark all
 - Specify Glacier vault identifier, like that `arn:aws:glacier:eu-west-1:NNNNNNNNNNNN:vaults/coverme-test`, vault should be creatd first!
+
+There's also a standalone AWS Policy Generator:  
+https://awspolicygen.s3.amazonaws.com/policygen.html
 
 License
 -------
