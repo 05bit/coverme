@@ -3,6 +3,7 @@ backup.yml
 
 # Temp
 tmp/
+backups/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

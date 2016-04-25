@@ -187,8 +187,7 @@ class BackupSource(object):
     def archive(self, temp_dir):
         """Copy data from source and make archive within temp directory.
         """
-        data_dir = os.path.join(temp_dir, self.get_base_name())
-        os.makedirs(data_dir)
+        data_dir = self._prep_for_data(temp_dir)
         not_empty = self.copy_data(data_dir)
         if not_empty:
             arch_path = self._make_archive(data_dir)
@@ -214,7 +213,7 @@ class BackupSource(object):
         default_format = self.backup.defaults.get('format')
         return self.settings.get('format', default_format) or 'zip'
 
-    def get_base_name(self):
+    def get_archive_name(self):
         """Get base name for archive.
         """
         now = datetime.datetime.now()
@@ -238,6 +237,16 @@ class BackupSource(object):
                                    base_dir=None,
                                    format=self.get_archive_format())
 
+    def _prep_for_data(self, data_base_dir):
+        """Join base data dir with :meth:`.get_archive_name()` and
+        create all parent dirs in the resulting tree.
+        """
+        path = os.path.join(data_base_dir, self.get_archive_name())
+        path_dir = os.path.dirname(path)
+        if not os.path.exists(path_dir):
+            os.makedirs(path_dir)
+        return path
+
 class DbSource(BackupSource):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -254,7 +263,7 @@ class PostgresqlBackupSource(DbSource):
     def copy_data(self, data_dir):
         """Make database dump via `pg_dump`. Return `True` if not empty.
         """
-        dump_file = os.path.join(data_dir, self.get_base_name())
+        dump_file = self._prep_for_data(data_dir)
         args = ['pg_dump', '--file=%s' % dump_file]
         if self.url.port:
             args.append('--port=%s' % self.url.port)
@@ -270,7 +279,7 @@ class MySQLBackupSource(DbSource):
     def copy_data(self, data_dir):
         """Make database dump via `mysqldump` and return archive path.
         """
-        dump_file = os.path.join(data_dir, self.get_base_name())
+        dump_file = self._prep_for_data(data_dir)
         args = ['mysqldump', '--result-file=%s' % dump_file]
         if self.url.port:
             args.append('--port=%s' % self.url.port)
@@ -296,7 +305,7 @@ class DirBackupSource(BackupSource):
         # with archive base name `/tmp/dEdjnr/{name from config}.zip`
         #
         from_path = self.settings['path']
-        base_name = os.path.join(temp_dir, self.get_base_name())
+        base_name = self._prep_for_data(temp_dir)
         arch_path = shutil.make_archive(
             base_name=base_name,
             root_dir=os.path.dirname(from_path),
