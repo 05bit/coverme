@@ -120,7 +120,7 @@ Command line help
 
 Get list of available commands:
 
-```bash
+```
 $ coverme --help
 
 Usage: coverme [OPTIONS] COMMAND [ARGS]...
@@ -136,7 +136,7 @@ Commands:
 
 Get help for `backup` command:
 
-```bash
+```
 $ coverme backup --help
 
 Usage: coverme backup [OPTIONS]
@@ -156,11 +156,6 @@ Tips on Amazon services setup
 ```
 pip install awscli
 ```
-
-### How to create Amazon Glacier vault?
-
-You may create vaults using wizard:  
-https://console.aws.amazon.com/glacier/home
 
 ### How to set up Amazon credentials?
 
@@ -185,6 +180,11 @@ aws_secret_access_key = YOUR_ANOTHER_SECRET_KEY
 
 Use Amazon Identity and Access Management (IAM) service to manage users:  
 https://console.aws.amazon.com/iam/home#users
+
+### How to create Amazon Glacier vault?
+
+You may create vaults using wizard:  
+https://console.aws.amazon.com/glacier/home
 
 ### How to grant user access to Glacier?
 
