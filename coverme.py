@@ -75,7 +75,11 @@ class Backup(object):
         for source in self.sources:
             arch_path = self.archive(source)
             if arch_path:
-                for vault in self.vaults.values():
+                vault_keys = source.get_vault_keys()
+                if vault_keys[0] == '*':
+                    vault_keys = self.vaults.keys()
+                for k in vault_keys:
+                    vault = self.vaults[k]
                     success, data = vault.upload(arch_path)
                     if success:
                         print("Uploaded to %s: %s" % (vault, data))
@@ -158,6 +162,12 @@ class BackupSource(object):
         self.backup = backup
         self.settings = settings
 
+    def get_vault_keys(self):
+        """Get vaults keys to upload archive. If not specified in config,
+        return ['*'] which mean all available vaults.
+        """
+        return self.settings.get('to', ['*'])
+
     def get_base_name(self):
         """Get base name for archive.
         """
@@ -174,7 +184,7 @@ class BackupSource(object):
         }
         return self.settings['name'].format(**params)
 
-class PostgresqlBackupSource(BackupSource):
+class DbSource(BackupSource):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.url = urlparse(self.settings['url'])
@@ -183,6 +193,10 @@ class PostgresqlBackupSource(BackupSource):
             raise ValueError("Database is not defined %s" %
                 self.settings['url'])
 
+    def __str__(self):
+        return '%s://%s%s' % (self.url.scheme, self.url.hostname, self.url.path)
+
+class PostgresqlBackupSource(DbSource):
     def copy_data(self, temp_dir):
         """Make database dump via `pg_dump`. Return `True` if not empty.
         """
@@ -198,14 +212,24 @@ class PostgresqlBackupSource(BackupSource):
         result = subprocess.call(args)
         return (result == 0)
 
-    def __str__(self):
-        return '%s://%s%s' % (self.url.scheme, self.url.hostname, self.url.path)
-
-class MySQLBackupSource(BackupSource):
+class MySQLBackupSource(DbSource):
     def copy_data(self, temp_dir):
         """Make database dump via `mysqldump` and return archive path.
         """
-        pass
+        dump_file = os.path.join(temp_dir, self.get_base_name())
+        args = ['mysqldump', '--result-file=%s' % dump_file]
+        if self.url.port:
+            args.append('--port=%s' % self.url.port)
+        if self.url.hostname:
+            args.append('--host=%s' % self.url.hostname)
+        if self.url.username:
+            args.append('--user=%s' % self.url.username)
+        if self.url.password:
+            args.append('--password=%s' % self.url.password)
+        args.append(self.db)
+        print(' '.join(args))
+        result = subprocess.call(args)
+        return (result == 0)
 
 class DirBackupSource(BackupSource):
     def copy_data(self, temp_dir):
@@ -230,7 +254,22 @@ class AWSVault(object):
             'access_key_id': settings.get('access_key_id'),
             'secret_access_key': settings.get('secret_access_key'),
         }
-        self.service = _aws_service(settings['service'], **params)
+        self.service = self._aws_service(settings['service'], **params)
+
+    @staticmethod
+    def _aws_service(name, region=None,
+                     access_key_id=None,
+                     secret_access_key=None):
+        """Get `boto3` Amazon service manager, e.g. S3 or Glacier.
+
+        Example:
+
+            s3 = get_aws_service('s3')
+        """
+        import boto3
+        return boto3.resource(name, region_name=region,
+                              aws_access_key_id=access_key_id,
+                              aws_secret_access_key=secret_access_key)
 
 class GlacierVault(AWSVault):
     def __init__(self, *args, **kwargs):
@@ -249,7 +288,7 @@ class GlacierVault(AWSVault):
         """Upload archive to Amazon Glacier. Return 2-tuple:
         ((bool) success, (dict) archive data).
         """
-        self.vault.load()
+        # self.vault.load()
         with open(archive_path, 'rb') as data:
             description = os.path.basename(archive_path)
             archive = self.vault.upload_archive(
@@ -269,6 +308,9 @@ class S3Bucket(AWSVault):
         return "Amazon S3 %(name)s" % self.settings
 
     def upload(self, archive_path):
+        """Upload archive to Amazon S3. Return 2-tuple:
+        ((bool) success, (dict) archive data).
+        """
         key = os.path.basename(archive_path)
         with open(archive_path, 'rb') as data:
             obj = self.bucket.put_object(
@@ -277,20 +319,6 @@ class S3Bucket(AWSVault):
             return True, {'key': obj.key}
         else:
             return False, None
-
-def _aws_service(name, region=None,
-                 access_key_id=None,
-                 secret_access_key=None):
-    """Get `boto3` Amazon service manager, e.g. S3 or Glacier.
-
-    Example:
-
-        s3 = get_aws_service('s3')
-    """
-    import boto3
-    return boto3.resource(name, region_name=region,
-                          aws_access_key_id=access_key_id,
-                          aws_secret_access_key=secret_access_key)
 
 def cli():
     """Command-line interface for coverme.

@@ -52,15 +52,25 @@ coverme --help
       - type: database
         url: postgres://postgres@127.0.0.1:5432/test
         to: [bucket1]
-        name: myapp-{yyyy}-{mm}-{dd}--{HH}-{MM}.sql
-        tags: myapp, db         # optional, no default
+        name: postgres-{yyyy}-{mm}-{dd}--{HH}-{MM}.sql
+        # tags: optional, no default
+        tags: myapp, postgres, db
+
+      - type: database
+        url: mysql://root@127.0.0.1/test
+        to: [bucket1]
+        name: mysql-{yyyy}-{mm}-{dd}--{HH}-{MM}.sql
+        # tags: optional, no default
+        tags: myapp, mysql, db
 
       - type: dir
         path: /home/myapp/var/www/uploads
         to: [glacier1]
         name: myapp-{yyyy}-{mm}-{dd}--{HH}-{MM}
-        format: gztar           # optional, default: zip
-        tags: myapp, uploads    # optional, no default
+        # format: optional, default: zip
+        format: gztar
+        # tags: optional, no default
+        tags: myapp, uploads
 
     vaults:
       bucket1:
