@@ -220,7 +220,7 @@ class BackupSource(object):
             'MM': '%02d' % now.minute,
             'SS': '%02d' % now.second,
             'UU': now.microsecond,
-            'tags': self.settings['tags'],
+            'tags': self.settings.get('tags'),
         }
         return self.settings['name'].format(**params)
 
