@@ -43,7 +43,7 @@ coverme --help
     ---
     defaults:
         # tmpdir: base directory for temporary files
-        tmpdir: tmp
+        tmpdir: /tmp
         # cleanup: remove archive after upload or not, default: no
         cleanup: yes
         # format: optional, default: zip
@@ -195,7 +195,7 @@ Choose _Policy Generator_ and then:
 
 - Select "Amazon Glacier" in dropdown
 - Check required pesmissions or mark all
-- Specify Glacier vault identifier, like that `arn:aws:glacier:eu-west-1:NNNNNNNNNNNN:vaults/coverme-test`, vault should be created first
+- Specify Glacier vault identifier, e.g. `arn:aws:glacier:eu-west-1:NNNNNNNNNNNN:vaults/coverme-test`, vault should be created first
 
 ### How to grant user access to S3?
 
@@ -206,7 +206,7 @@ Choose _Policy Generator_ and then:
 
 - Select "Amazon S3" in dropdown
 - Check required pesmissions or mark all
-- Specify S3 bucket resources mask, like that `arn:aws:s3:::coverme-test/*`
+- Specify S3 bucket resources mask, e.g. `arn:aws:s3:::coverme-test/*`
 
 License
 -------

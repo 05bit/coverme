@@ -82,7 +82,8 @@ class Backup(object):
         """Run backup for all sources.
         """
         for source in self.sources:
-            arch_path = self.archive(source)
+            temp_dir = self._make_temp_dir()
+            arch_path = source.archive(temp_dir)
             if arch_path:
                 vault_keys = source.get_vault_keys()
                 if vault_keys[0] == '*':
@@ -94,20 +95,12 @@ class Backup(object):
                         print("Uploaded to %s: %s" % (vault, data))
                     else:
                         print("Not uploaded to %s" % vault)
+            shutil.rmtree(temp_dir, ignore_errors=True)
 
-    def archive(self, source):
-        """Copy data from source and make archive. Return archive path.
+    def get_temp_dir(self):
+        """Get base temp directory path.
         """
-        temp_dir = self._make_temp_dir(source.get_base_name())
-        not_empty = source.copy_data(temp_dir)
-        if not_empty:
-            arch_path = self._make_archive(temp_dir)
-            print("Archived %s" % arch_path)
-        else:
-            arch_path = None
-            print("Nothing to archive from source %s" % source)
-        shutil.rmtree(temp_dir, ignore_errors=True)
-        return arch_path
+        return os.path.realpath(self.defaults.get('tmpdir', '/tmp'))
 
     def _new_sources(self, config_list):
         """Create new sources by list of dicts. Return list
@@ -149,27 +142,37 @@ class Backup(object):
             vaults[k] = vault
         return vaults
 
-    def _make_temp_dir(self, prefix):
-        """Make temp directory under temp base path.
+    def _make_temp_dir(self, prefix=''):
+        """Make new temp directory under base temp path.
         """
-        base_dir = os.path.realpath(self.defaults['tmpdir'])
+        base_dir = self.get_temp_dir()
         if not os.path.exists(base_dir):
             os.makedirs(base_dir)
-        return tempfile.mkdtemp(prefix=prefix, dir=base_dir)
-
-    def _make_archive(self, dir_name):
-        """Make archive of directory.
-        """
-        arch_format = self.defaults.get('format', 'zip')
-        return shutil.make_archive(dir_name,
-                                   root_dir=dir_name,
-                                   base_dir=None,
-                                   format=arch_format)
+        return tempfile.mkdtemp(dir=base_dir, prefix=prefix)
 
 class BackupSource(object):
     def __init__(self, backup, **settings):
         self.backup = backup
         self.settings = settings
+
+    def archive(self, temp_dir):
+        """Copy data from source and make archive within temp directory.
+        """
+        data_dir = os.path.join(temp_dir, self.get_base_name())
+        os.makedirs(data_dir)
+        not_empty = self.copy_data(data_dir)
+        if not_empty:
+            arch_path = self._make_archive(data_dir)
+            print("Archived %s" % arch_path)
+        else:
+            arch_path = None
+            print("Nothing to archive from source %s" % self)
+        return arch_path
+
+    def copy_data(self, temp_dir):
+        """Copy backup data to temp directory.
+        """
+        raise NotImplementedError
 
     def get_vault_keys(self):
         """Get vaults keys to upload archive. If not specified in config,
@@ -192,6 +195,15 @@ class BackupSource(object):
             'tags': self.settings['tags'],
         }
         return self.settings['name'].format(**params)
+
+    def _make_archive(self, dir_name):
+        """Make archive of directory.
+        """
+        arch_format = self.backup.defaults.get('format', 'zip')
+        return shutil.make_archive(dir_name,
+                                   root_dir=dir_name,
+                                   base_dir=None,
+                                   format=arch_format)
 
 class DbSource(BackupSource):
     def __init__(self, *args, **kwargs):
@@ -368,12 +380,13 @@ def main():
 
         backup.run()
 
-    try:
-        cli()
-    except Exception as e:
-        click.echo("\n"
-                   "Exited with error! %s" % e)
-        sys.exit(1)
+    cli()
+    # try:
+    #     cli()
+    # except Exception as e:
+    #     click.echo("\n"
+    #                "Exited with error! %s" % e)
+    #     sys.exit(1)
 
 if __name__ == '__main__':
     main()
