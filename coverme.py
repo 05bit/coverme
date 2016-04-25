@@ -209,13 +209,16 @@ class DirBackupSource(BackupSource):
 
 class BaseVault(object):
     def __init__(self, backup, **settings):
-        pass
+        self.backup = backup
+        self.settings = settings
 
 class GlacierVault(BaseVault):
-    pass
+    def __init__(*args, **kwargs):
+        super().__init__(*args, **kwargs)
 
 class S3Vault(BaseVault):
-    pass
+    def __init__(*args, **kwargs):
+        super().__init__(*args, **kwargs)
 
 if __name__ == '__main__':
     import click

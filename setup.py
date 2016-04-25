@@ -27,6 +27,7 @@ setup(
     install_requires=(
         'click',
         'pyyaml',
+        'boto3',
     ),
     py_modules=[
         'coverme',

@@ -3,6 +3,11 @@ coverme
 
 Lightweight and easy configurable backup utility.
 
+- [Install][]
+- [Quickstart][]
+- [Tips on Amazon services setup][]
+- [License][]
+
 Install
 -------
 
@@ -61,7 +66,7 @@ coverme --help
       bucket1:
         type: s3
         region: eu-west-1
-        bucket: my-bucket-name
+        bucket: coverme-test
 
       glacier1:
         type: glacier
