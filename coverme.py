@@ -112,8 +112,7 @@ class Backup(object):
                     echo("Not uploaded to %s" % vault)
             localdir = source.get_local_dir()
             if localdir:
-                _smakedirs(localdir)
-                shutil.move(arch_path, localdir)
+                _smove(arch_path, localdir)
         else:
             echo("*** nothing to upload from source %s" % source)
 
@@ -477,6 +476,15 @@ def _smaketemp(base_dir, prefix=''):
     """
     _smakedirs(base_dir)
     return tempfile.mkdtemp(dir=base_dir, prefix=prefix)
+
+def _smove(src, dst_dir):
+    """Move file to destination directory with overwrite.
+    """
+    _smakedirs(dst_dir)
+    dst_path = os.path.join(dst_dir, os.path.basename(src))
+    if os.path.exists(dst_path):
+        os.unlink(dst_path)
+    shutil.move(src, dst_dir)
 
 def _stdout_logging(level):
     """Setup logging to stdout and return logger's `info` method.
