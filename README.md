@@ -1,10 +1,10 @@
 coverme
 =======
 
-Lightweight and easy configurable backup utility.
+Lightweight and easy configurable server backup utility.
 
 - [Install](#install)
-- [Quickstart](#quickstart)
+- [Usage](#usage)
 - [Tips on Amazon services setup](#tips-on-amazon-services-setup)
 - [License](#license)
 
@@ -25,10 +25,10 @@ pip3 install coverme
 
 If you're going to use Amazon services for backup, you'll also need to set up credentials via `aws configure` or manually, see [Tips on Amazon services setup](#tips-on-amazon-services-setup).
 
-Quickstart
-----------
+Usage
+-----
 
-Just to make sure installation is correct run:
+Just to make sure that installation is correct run:
 
 ```
 coverme --help
@@ -144,7 +144,7 @@ https://console.aws.amazon.com/iam/home#users
 
 ### How to grant user access to Glacier?
 
-In IAM panel on user's details page:  
+In Amazon Identity and Access Management (IAM) panel on user's details page:  
 _Permissions tab_ -> _Inline Policies_ (click to expand) -> **Create User Policy**
 
 Then choose _Policy Generator_, and then:
@@ -153,8 +153,16 @@ Then choose _Policy Generator_, and then:
 - Check required pesmissions or mark all
 - Specify Glacier vault identifier, like that `arn:aws:glacier:eu-west-1:NNNNNNNNNNNN:vaults/coverme-test`, vault should be creatd first!
 
-There's also a standalone AWS Policy Generator:  
-https://awspolicygen.s3.amazonaws.com/policygen.html
+### How to grant user access to S3?
+
+In Amazon Identity and Access Management (IAM) panel on user's details page:  
+_Permissions tab_ -> _Inline Policies_ (click to expand) -> **Create User Policy**
+
+Then choose _Policy Generator_, and then:
+
+- Select "Amazon S3" in dropdown
+- Check required pesmissions or mark all
+- Specify S3 bucket ARN mask, like that `arn:aws:s3:::coverme-test/*`
 
 License
 -------

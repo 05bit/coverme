@@ -32,6 +32,11 @@ setup(
     py_modules=[
         'coverme',
     ],
+    entry_points={
+        'console_scripts': [
+            'coverme = coverme:cli',
+        ],
+    },
     classifiers=[
         'Development Status :: 3 - Alpha',
         'Environment :: Console',

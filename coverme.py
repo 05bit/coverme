@@ -41,11 +41,13 @@ class Backup(object):
 
         load = yaml.load if file_format == 'yaml' else json.loads
 
-        with open(path) as f:
-            settings = load(f)
+        try:
+            with open(path) as f:
+                settings = load(f)
+        except IOError:
+            return None, {'path': path, '': "No config file found"}
 
         errors = cls.validate(**settings)
-
         if not errors:
             try:
                 return cls(**settings), None
@@ -249,16 +251,32 @@ class GlacierVault(AWSVault):
         """
         self.vault.load()
         with open(archive_path, 'rb') as data:
+            description = os.path.basename(archive_path)
             archive = self.vault.upload_archive(
-                body=data, archiveDescription=archive_path)
+                body=data, archiveDescription=description)
         if archive:
-            return True, {'id': archive.id}
+            return True, {'id': archive.id, 'description': description}
         else:
             return False, None
 
 class S3Bucket(AWSVault):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        name = self.settings.get('name')
+        self.bucket = self.service.Bucket(name)
+
+    def __str__(self):
+        return "Amazon S3 %(name)s" % self.settings
+
     def upload(self, archive_path):
-        return False, None
+        key = os.path.basename(archive_path)
+        with open(archive_path, 'rb') as data:
+            obj = self.bucket.put_object(
+                ACL='private', Body=data, Key=key)
+        if obj:
+            return True, {'key': obj.key}
+        else:
+            return False, None
 
 def _aws_service(name, region=None,
                  access_key_id=None,
@@ -274,11 +292,13 @@ def _aws_service(name, region=None,
                           aws_access_key_id=access_key_id,
                           aws_secret_access_key=secret_access_key)
 
-if __name__ == '__main__':
+def cli():
+    """Command-line interface for coverme.
+    """
     import click
 
     @click.command()
-    @click.option('-c', '--config', default='backup.yml',
+    @click.option('-c', '--config', show_default=True, default='backup.yml',
                   help="Backups configuration file.")
     def main(config):
         backup, errors = Backup.create_with_config(config)
@@ -293,12 +313,15 @@ if __name__ == '__main__':
                        "    See also README.md and docs for details\n"
                        "    https://github.com/05bit/coverme\n")
             sys.exit(1)
-        else:
-            try:
-                backup.run()
-            except Exception as e:
-                click.echo("\n"
-                           "Exited with error! %s" % e)
-                sys.exit(1)
 
-    main()
+        backup.run()
+
+    try:
+        main()
+    except Exception as e:
+        click.echo("\n"
+                   "Exited with error! %s" % e)
+        sys.exit(1)
+
+if __name__ == '__main__':
+    cli()
