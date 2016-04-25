@@ -4,6 +4,7 @@ import os
 import sys
 import json
 import yaml
+import logging
 import datetime
 import shutil
 import subprocess
@@ -16,6 +17,23 @@ except ImportError:
     urlparse = urllib.parse.urlparse
 
 __version__ = '0.0.1'
+
+log = logging.getLogger(__name__)
+log.setLevel(logging.INFO)
+
+def _stdout_logging():
+    """Setup logging to stdout.
+    """
+    formatter = logging.Formatter(
+        '%(levelname)s %(asctime)s %(module)s %(funcName)s(): %(message)s',
+        '%Y-%m-%d %H:%M:%S')
+    stdout = logging.StreamHandler()
+    stdout.setLevel(logging.INFO)
+    stdout.setFormatter(formatter)
+    log.addHandler(stdout)
+    return log.info
+
+echo = _stdout_logging() # Use echo() instead of print() or log.info()
 
 class Backup(object):
     def __init__(self, **settings):
@@ -44,10 +62,12 @@ class Backup(object):
 
             try:
                 with open(path) as f:
+                    echo("Reading config from %s" % path)
                     settings = load(f)
             except IOError:
                 return None, {'path': path, '': "No config file found"}
         elif stream:
+            echo("Reading config from stdin")
             text = '\n'.join([line for line in stream])
             if text.startswith('---'):
                 settings = yaml.load(text)
@@ -92,9 +112,9 @@ class Backup(object):
                     vault = self.vaults[k]
                     success, data = vault.upload(arch_path)
                     if success:
-                        print("Uploaded to %s: %s" % (vault, data))
+                        echo("Uploaded to %s: %s" % (vault, data))
                     else:
-                        print("Not uploaded to %s" % vault)
+                        echo("Not uploaded to %s" % vault)
             shutil.rmtree(temp_dir, ignore_errors=True)
 
     def get_temp_dir(self):
@@ -163,13 +183,13 @@ class BackupSource(object):
         not_empty = self.copy_data(data_dir)
         if not_empty:
             arch_path = self._make_archive(data_dir)
-            print("Archived %s" % arch_path)
+            echo("Archived %s" % arch_path)
         else:
             arch_path = None
-            print("Nothing to archive from source %s" % self)
+            echo("Nothing to archive from source %s" % self)
         return arch_path
 
-    def copy_data(self, temp_dir):
+    def copy_data(self, data_dir):
         """Copy backup data to temp directory.
         """
         raise NotImplementedError
@@ -218,10 +238,10 @@ class DbSource(BackupSource):
         return '%s://%s%s' % (self.url.scheme, self.url.hostname, self.url.path)
 
 class PostgresqlBackupSource(DbSource):
-    def copy_data(self, temp_dir):
+    def copy_data(self, data_dir):
         """Make database dump via `pg_dump`. Return `True` if not empty.
         """
-        dump_file = os.path.join(temp_dir, self.get_base_name())
+        dump_file = os.path.join(data_dir, self.get_base_name())
         args = ['pg_dump', '--file=%s' % dump_file]
         if self.url.port:
             args.append('--port=%s' % self.url.port)
@@ -234,10 +254,10 @@ class PostgresqlBackupSource(DbSource):
         return (result == 0)
 
 class MySQLBackupSource(DbSource):
-    def copy_data(self, temp_dir):
+    def copy_data(self, data_dir):
         """Make database dump via `mysqldump` and return archive path.
         """
-        dump_file = os.path.join(temp_dir, self.get_base_name())
+        dump_file = os.path.join(data_dir, self.get_base_name())
         args = ['mysqldump', '--result-file=%s' % dump_file]
         if self.url.port:
             args.append('--port=%s' % self.url.port)
@@ -252,7 +272,7 @@ class MySQLBackupSource(DbSource):
         return (result == 0)
 
 class DirBackupSource(BackupSource):
-    def copy_data(self, temp_dir):
+    def copy_data(self, data_dir):
         """Make directory archive and return archive path.
         """
         pass
@@ -345,6 +365,13 @@ def main():
     """
     import click
 
+    global echo
+
+    def nice_echo(message):
+        click.echo('* %s' % message)
+
+    echo = nice_echo
+
     def get_params(config):
         if config == '-':
             return {'stream': sys.stdin}
@@ -380,13 +407,12 @@ def main():
 
         backup.run()
 
-    cli()
-    # try:
-    #     cli()
-    # except Exception as e:
-    #     click.echo("\n"
-    #                "Exited with error! %s" % e)
-    #     sys.exit(1)
+    try:
+        cli()
+    except Exception as e:
+        click.echo("\n"
+                   "Exited with error! %s" % e)
+        sys.exit(1)
 
 if __name__ == '__main__':
     main()
