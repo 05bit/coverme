@@ -19,21 +19,6 @@ except ImportError:
 __version__ = '0.5'
 
 log = logging.getLogger(__name__)
-log.setLevel(logging.INFO)
-
-def _stdout_logging():
-    """Setup logging to stdout.
-    """
-    formatter = logging.Formatter(
-        '%(levelname)s %(asctime)s %(module)s %(funcName)s(): %(message)s',
-        '%Y-%m-%d %H:%M:%S')
-    stdout = logging.StreamHandler()
-    stdout.setLevel(logging.INFO)
-    stdout.setFormatter(formatter)
-    log.addHandler(stdout)
-    return log.info
-
-echo = _stdout_logging() # Use echo() instead of print() or log.info()
 
 class Backup(object):
     def __init__(self, **settings):
@@ -63,7 +48,7 @@ class Backup(object):
             try:
                 with open(path) as f:
                     settings = load(f)
-                    echo("OK: reading config from %s" % path)
+                    echo("+++ reading config from %s" % path)
             except IOError:
                 return None, {'path': path, '': "No config file found"}
         elif stream:
@@ -101,14 +86,16 @@ class Backup(object):
     def run(self):
         """Run backup for all sources.
         """
+        echo("+++ started at [%s]" % datetime.datetime.now())
         for source in self.sources:
-            temp_dir = self._make_temp_dir()
+            temp_dir = _smaketemp(self.get_temp_dir())
             try:
                 self._run_with_temp_dir(source, temp_dir)
             except Exception as e:
-                log.error(e)
+                echo('*** error in %s: %s' % (source, e))
             finally:
                 shutil.rmtree(temp_dir, ignore_errors=True)
+        echo("+++ completed at [%s]" % datetime.datetime.now())
 
     def _run_with_temp_dir(self, source, temp_dir):
         arch_path = source.archive(temp_dir)
@@ -120,9 +107,13 @@ class Backup(object):
                 vault = self.vaults[k]
                 success, data = vault.upload(arch_path)
                 if success:
-                    echo("OK: uploaded to %s: %s" % (vault, data))
+                    echo("+++ uploaded to %s: %s" % (vault, data))
                 else:
                     echo("Not uploaded to %s" % vault)
+            localdir = source.get_local_dir()
+            if localdir:
+                _smakedirs(localdir)
+                shutil.move(arch_path, localdir)
         else:
             echo("*** nothing to upload from source %s" % source)
 
@@ -130,6 +121,13 @@ class Backup(object):
         """Get base temp directory path.
         """
         return os.path.realpath(self.defaults.get('tmpdir', '/tmp'))
+
+    def get_local_dir(self):
+        """Get directory path for local backups.
+        """
+        localdir = self.defaults.get('localdir')
+        if localdir:
+            return os.path.realpath(localdir)
 
     def _new_sources(self, config_list):
         """Create new sources by list of dicts. Return list
@@ -171,27 +169,22 @@ class Backup(object):
             vaults[k] = vault
         return vaults
 
-    def _make_temp_dir(self, prefix=''):
-        """Make new temp directory under base temp path.
-        """
-        base_dir = self.get_temp_dir()
-        if not os.path.exists(base_dir):
-            os.makedirs(base_dir)
-        return tempfile.mkdtemp(dir=base_dir, prefix=prefix)
-
 class BackupSource(object):
     def __init__(self, backup, **settings):
         self.backup = backup
         self.settings = settings
+        self.name_pattern = self.settings.get('name')
+        if not self.name_pattern:
+            raise ValueError("Missing 'name' key in config for %s" % self)
 
     def archive(self, temp_dir):
         """Copy data from source and make archive within temp directory.
         """
-        data_dir = self._prep_for_data(temp_dir)
+        data_dir = self._prepare_data_path(temp_dir)
         not_empty = self.copy_data(data_dir)
         if not_empty:
             arch_path = self._make_archive(data_dir)
-            echo("OK: archived %s" % arch_path)
+            echo("+++ archived %s" % arch_path)
         else:
             arch_path = None
         return arch_path
@@ -229,22 +222,28 @@ class BackupSource(object):
         }
         return self.settings['name'].format(**params)
 
+    def get_local_dir(self):
+        """Get directory path for local backups.
+        """
+        default = self.backup.get_local_dir()
+        localdir = self.settings.get('localdir', default)
+        if localdir:
+            return os.path.realpath(localdir)
+
     def _make_archive(self, dir_name):
-        """Make archive of directory.
+        """Make archive of the specified directory near that directory.
         """
         return shutil.make_archive(dir_name,
                                    root_dir=dir_name,
                                    base_dir=None,
                                    format=self.get_archive_format())
 
-    def _prep_for_data(self, data_base_dir):
-        """Join base data dir with :meth:`.get_archive_name()` and
-        create all parent dirs in the resulting tree.
+    def _prepare_data_path(self, base_dir):
+        """Join base dir with :meth:`.get_archive_name()` and create
+        all parent dirs in the resulting tree. Return joined path.
         """
-        path = os.path.join(data_base_dir, self.get_archive_name())
-        path_dir = os.path.dirname(path)
-        if not os.path.exists(path_dir):
-            os.makedirs(path_dir)
+        path = os.path.join(base_dir, self.get_archive_name())
+        _smakedirs(os.path.dirname(path))
         return path
 
 class DbSource(BackupSource):
@@ -263,7 +262,7 @@ class PostgresqlBackupSource(DbSource):
     def copy_data(self, data_dir):
         """Make database dump via `pg_dump`. Return `True` if not empty.
         """
-        dump_file = self._prep_for_data(data_dir)
+        dump_file = self._prepare_data_path(data_dir)
         args = ['pg_dump', '--file=%s' % dump_file]
         if self.url.port:
             args.append('--port=%s' % self.url.port)
@@ -279,7 +278,7 @@ class MySQLBackupSource(DbSource):
     def copy_data(self, data_dir):
         """Make database dump via `mysqldump` and return archive path.
         """
-        dump_file = self._prep_for_data(data_dir)
+        dump_file = self._prepare_data_path(data_dir)
         args = ['mysqldump', '--result-file=%s' % dump_file]
         if self.url.port:
             args.append('--port=%s' % self.url.port)
@@ -294,25 +293,31 @@ class MySQLBackupSource(DbSource):
         return (result == 0)
 
 class DirBackupSource(BackupSource):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.path = self.settings.get('path')
+        if not self.path:
+            raise ValueError("Path not specified for directory "
+                             "backup source, 'path' key is empty")
+
     def archive(self, temp_dir):
         """Archive source directory to temp directory.
         """
-        #
         # We want to achive `/my/sub/{some dir}` under unique temp dir:
         # `/tmp/dEdjnr/{name from config}`
         #
-        # So we make archive from base path `/my/sub/{some dir}`
-        # with archive base name `/tmp/dEdjnr/{name from config}.zip`
-        #
+        # So we make archive from base path `/my/sub/{some dir}`,
+        # root path `/my/sub/` and archive name
+        # `/tmp/dEdjnr/{name from config}`
         from_path = self.settings['path']
-        base_name = self._prep_for_data(temp_dir)
+        base_name = self._prepare_data_path(temp_dir)
         arch_path = shutil.make_archive(
             base_name=base_name,
             root_dir=os.path.dirname(from_path),
             base_dir=from_path,
             # logger=log,
             format=self.get_archive_format())
-        echo("OK: archived %s" % arch_path)
+        echo("+++ archived %s" % arch_path)
         return arch_path
 
     def __str__(self):
@@ -406,10 +411,10 @@ def main():
     global echo
 
     def nice_echo(msg):
-        if msg.startswith('OK:'):
+        if msg.startswith('+++'):
             click.secho(msg, fg='green')
         elif msg.startswith('***'):
-            click.secho(msg, fg='red')
+            click.secho(msg, fg='red', err=True)
         else:
             click.echo(msg)
 
@@ -441,7 +446,7 @@ def main():
             path = errors.pop('path')
             echo("Errors in configuration file `%s`" % path)
             for k, v in errors.items():
-                click.echo("- %s" % v)
+                echo("*** %s" % v)
             echo("\n"
                  "    Run `coverme --help` for basic examples\n"
                  "    See also README.md and docs for details\n"
@@ -455,6 +460,43 @@ def main():
     except Exception as e:
         echo("*** exited with error! %s" % e)
         sys.exit(1)
+
+#########
+# Utils #
+#########
+
+def _smakedirs(path):
+    """Safe `os.makedirs()` shortcut. Check if directory does not exist
+    and create with `0o700` permission mode.
+    """
+    if path and not os.path.exists(path):
+        os.makedirs(path, mode=0o700)
+
+def _smaketemp(base_dir, prefix=''):
+    """Safe make new temp directory under base temp path.
+    """
+    _smakedirs(base_dir)
+    return tempfile.mkdtemp(dir=base_dir, prefix=prefix)
+
+def _stdout_logging(level):
+    """Setup logging to stdout and return logger's `info` method.
+    """
+    formatter = logging.Formatter(
+        '%(levelname)s %(asctime)s %(module)s %(funcName)s(): %(message)s',
+        '%Y-%m-%d %H:%M:%S')
+    stdout = logging.StreamHandler()
+    stdout.setLevel(level)
+    stdout.setFormatter(formatter)
+    log.setLevel(level)
+    log.addHandler(stdout)
+    return log.info
+
+# Use echo() instead of print() or log.info()
+echo = _stdout_logging(logging.INFO)
+
+################
+# Run the main #
+################
 
 if __name__ == '__main__':
     main()
