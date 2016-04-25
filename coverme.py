@@ -24,7 +24,7 @@ class Backup(object):
         self.vaults = self._new_vaults(settings['vaults'])
 
     @classmethod
-    def create_with_config(cls, path, file_format=None):
+    def create_with_config(cls, path=None, stream=None, file_format=None):
         """Read config and create backup instance with config.
         Return 2-tuple: (instance, errors)
 
@@ -32,20 +32,29 @@ class Backup(object):
         and `errors` is a dict with error keys and readable
         descriptions.
         """
-        name, ext = os.path.splitext(path)
-        if not file_format:
-            if ext in ('.json',):
-                file_format = 'json'
+        if path:
+            name, ext = os.path.splitext(path)
+            if not file_format:
+                if ext in ('.json',):
+                    file_format = 'json'
+                else:
+                    file_format = 'yaml'
+
+            load = yaml.load if file_format == 'yaml' else json.loads
+
+            try:
+                with open(path) as f:
+                    settings = load(f)
+            except IOError:
+                return None, {'path': path, '': "No config file found"}
+        elif stream:
+            text = '\n'.join([line for line in stream])
+            if text.startswith('---'):
+                settings = yaml.load(text)
             else:
-                file_format = 'yaml'
-
-        load = yaml.load if file_format == 'yaml' else json.loads
-
-        try:
-            with open(path) as f:
-                settings = load(f)
-        except IOError:
-            return None, {'path': path, '': "No config file found"}
+                settings = json.loads(text)
+        else:
+            raise Exception("Either config path or stream must be provided.")
 
         errors = cls.validate(**settings)
         if not errors:
@@ -324,18 +333,27 @@ def main():
     """
     import click
 
+    def get_params(config):
+        if config == '-':
+            return {'stream': sys.stdin}
+        else:
+            return {'path': config}
+
     @click.group()
-    def cli():
+    @click.pass_context
+    def cli(ctx):
         """Command-line interface for coverme.
         """
         pass
 
     @cli.command()
     @click.option('-c', '--config', show_default=True, default='backup.yml',
-                  help="Backups configuration file.")
+                  help="Backups configuration file."
+                       "Specify '-' to read from STDIN.")
     @click.pass_context
     def backup(ctx, config):
-        backup, errors = Backup.create_with_config(config)
+        params = get_params(config)
+        backup, errors = Backup.create_with_config(**params)
 
         if errors:
             path = errors.pop('path')

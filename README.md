@@ -4,7 +4,8 @@ coverme
 Lightweight and easy configurable server backup utility.
 
 - [Install](#install)
-- [Usage](#usage)
+- [Basic usage](#basic-usage)
+- [Command line help](#command-line-help)
 - [Tips on Amazon services setup](#tips-on-amazon-services-setup)
 - [License](#license)
 
@@ -25,8 +26,8 @@ pip3 install coverme
 
 If you're going to use Amazon services for backup, you'll also need to set up credentials via `aws configure` or manually, see [Tips on Amazon services setup](#tips-on-amazon-services-setup).
 
-Usage
------
+Basic usage
+-----------
 
 Just to make sure that installation is correct run:
 
@@ -113,6 +114,39 @@ coverme --help
     ```
     which coverme
     ```
+
+Command line help
+-----------------
+
+Get list of available commands:
+
+```bash
+$ coverme --help
+
+Usage: coverme [OPTIONS] COMMAND [ARGS]...
+
+  Command-line interface for coverme.
+
+Options:
+  --help  Show this message and exit.
+
+Commands:
+  backup
+```
+
+Get help for `backup` command:
+
+```bash
+$ coverme backup --help
+
+Usage: coverme backup [OPTIONS]
+
+Options:
+  -c, --config TEXT  Backups configuration file.Specify '-' to read from
+                     STDIN.  [default: backup.yml]
+  --help             Show this message and exit.
+```
+
 
 Tips on Amazon services setup
 -----------------------------
