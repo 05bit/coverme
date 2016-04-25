@@ -9,6 +9,19 @@ Lightweight and easy configurable server backup utility.
 - [Tips on Amazon services setup](#tips-on-amazon-services-setup)
 - [License](#license)
 
+Overview
+--------
+
+`coverme` acts as a backup data aggregator, it grabs data from different sources and uploads it to Amazon Glacier or Amazon S3. More storage options will be probably available. You're always welcome to fork and make a pull request ;)
+
+* Requires Python 2.7+ or Python 3.4+ installed
+* Should work on Linux/MacOS/FreeBSD
+* Supports MySQL backups via `mysqldump`
+* Supports PostgreSQL backups via `pg_dump`
+* Supports directory archive
+
+Also for Amazon services configuration you may need to install AWS command line utility `awscli`.
+
 Install
 -------
 
@@ -80,13 +93,13 @@ coverme --help
         service: s3
         region: eu-west-1
         account: NNNNNNNNNNNN
-        bucket: coverme-test
+        name: coverme-test
 
       glacier1:
         service: glacier
         region: eu-west-1
         account: NNNNNNNNNNNN
-        vault: coverme-test
+        name: coverme-test
     ...
     ```
 
