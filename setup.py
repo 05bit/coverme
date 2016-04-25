@@ -34,7 +34,7 @@ setup(
     ],
     entry_points={
         'console_scripts': [
-            'coverme = coverme:cli',
+            'coverme = coverme:main',
         ],
     },
     classifiers=[

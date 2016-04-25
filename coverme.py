@@ -179,7 +179,7 @@ class BackupSource(object):
             'HH': '%02d' % now.hour,
             'MM': '%02d' % now.minute,
             'SS': '%02d' % now.second,
-            'US': now.microsecond,
+            'UU': now.microsecond,
             'tags': self.settings['tags'],
         }
         return self.settings['name'].format(**params)
@@ -227,7 +227,6 @@ class MySQLBackupSource(DbSource):
         if self.url.password:
             args.append('--password=%s' % self.url.password)
         args.append(self.db)
-        print(' '.join(args))
         result = subprocess.call(args)
         return (result == 0)
 
@@ -320,15 +319,22 @@ class S3Bucket(AWSVault):
         else:
             return False, None
 
-def cli():
+def main():
     """Command-line interface for coverme.
     """
     import click
 
-    @click.command()
+    @click.group()
+    def cli():
+        """Command-line interface for coverme.
+        """
+        pass
+
+    @cli.command()
     @click.option('-c', '--config', show_default=True, default='backup.yml',
                   help="Backups configuration file.")
-    def main(config):
+    @click.pass_context
+    def backup(ctx, config):
         backup, errors = Backup.create_with_config(config)
 
         if errors:
@@ -345,11 +351,11 @@ def cli():
         backup.run()
 
     try:
-        main()
+        cli()
     except Exception as e:
         click.echo("\n"
                    "Exited with error! %s" % e)
         sys.exit(1)
 
 if __name__ == '__main__':
-    cli()
+    main()

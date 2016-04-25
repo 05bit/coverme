@@ -90,7 +90,7 @@ coverme --help
 2. Perform test backup using config file `backup.yml`:
 
     ```
-    coverme -c backup.yml
+    coverme backup -c backup.yml
     ```
 
     If some configutaion error happen, fix it first. For example, may you have to configure AWS credentials with [`aws configure`](http://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html) first.
@@ -105,7 +105,7 @@ coverme --help
 
     ```
     # run coverme backups every day at 5:30
-    30 5 * * * /usr/local/bin/coverme -c /home/myapp/backup.yml
+    30 5 * * * /usr/local/bin/coverme backup -c /home/myapp/backup.yml
     ```
 
     Real path to `coverme` may be different depending on installation, to get proper full path run:
@@ -157,22 +157,22 @@ https://console.aws.amazon.com/iam/home#users
 In Amazon Identity and Access Management (IAM) panel on user's details page:  
 _Permissions tab_ -> _Inline Policies_ (click to expand) -> **Create User Policy**
 
-Then choose _Policy Generator_, and then:
+Choose _Policy Generator_ and then:
 
 - Select "Amazon Glacier" in dropdown
 - Check required pesmissions or mark all
-- Specify Glacier vault identifier, like that `arn:aws:glacier:eu-west-1:NNNNNNNNNNNN:vaults/coverme-test`, vault should be creatd first!
+- Specify Glacier vault identifier, like that `arn:aws:glacier:eu-west-1:NNNNNNNNNNNN:vaults/coverme-test`, vault should be created first
 
 ### How to grant user access to S3?
 
 In Amazon Identity and Access Management (IAM) panel on user's details page:  
 _Permissions tab_ -> _Inline Policies_ (click to expand) -> **Create User Policy**
 
-Then choose _Policy Generator_, and then:
+Choose _Policy Generator_ and then:
 
 - Select "Amazon S3" in dropdown
 - Check required pesmissions or mark all
-- Specify S3 bucket ARN mask, like that `arn:aws:s3:::coverme-test/*`
+- Specify S3 bucket resources mask, like that `arn:aws:s3:::coverme-test/*`
 
 License
 -------
