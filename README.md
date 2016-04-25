@@ -3,10 +3,10 @@ coverme
 
 Lightweight and easy configurable backup utility.
 
-- [Install][]
-- [Quickstart][]
-- [Tips on Amazon services setup][]
-- [License][]
+- [Install](#install)
+- [Quickstart](#quickstart)
+- [Tips on Amazon services setup](#tips-on-amazon-services-setup)
+- [License](#license)
 
 Install
 -------
@@ -23,7 +23,7 @@ or if only Python 3.x pip is available:
 pip3 install coverme
 ```
 
-If you're going to use Amazon services for backup, you'll also need to set up credentials via `aws configure` or manually, see [Tips on Amazon services setup][].
+If you're going to use Amazon services for backup, you'll also need to set up credentials via `aws configure` or manually, see [Tips on Amazon services setup](#tips-on-amazon-services-setup).
 
 Quickstart
 ----------
