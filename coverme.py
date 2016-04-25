@@ -62,8 +62,8 @@ class Backup(object):
 
             try:
                 with open(path) as f:
-                    echo("Reading config from %s" % path)
                     settings = load(f)
+                    echo("OK: reading config from %s" % path)
             except IOError:
                 return None, {'path': path, '': "No config file found"}
         elif stream:
@@ -112,9 +112,11 @@ class Backup(object):
                     vault = self.vaults[k]
                     success, data = vault.upload(arch_path)
                     if success:
-                        echo("Uploaded to %s: %s" % (vault, data))
+                        echo("OK: uploaded to %s: %s" % (vault, data))
                     else:
                         echo("Not uploaded to %s" % vault)
+            else:
+                echo("*** nothing to upload from source %s" % source)
             shutil.rmtree(temp_dir, ignore_errors=True)
 
     def get_temp_dir(self):
@@ -183,10 +185,9 @@ class BackupSource(object):
         not_empty = self.copy_data(data_dir)
         if not_empty:
             arch_path = self._make_archive(data_dir)
-            echo("Archived %s" % arch_path)
+            echo("OK: archived %s" % arch_path)
         else:
             arch_path = None
-            echo("Nothing to archive from source %s" % self)
         return arch_path
 
     def copy_data(self, data_dir):
@@ -199,6 +200,12 @@ class BackupSource(object):
         return ['*'] which mean all available vaults.
         """
         return self.settings.get('to', ['*'])
+
+    def get_archive_format(self):
+        """Get archive format.
+        """
+        default_format = self.backup.defaults.get('format')
+        return self.settings.get('format', default_format) or 'zip'
 
     def get_base_name(self):
         """Get base name for archive.
@@ -219,11 +226,10 @@ class BackupSource(object):
     def _make_archive(self, dir_name):
         """Make archive of directory.
         """
-        arch_format = self.backup.defaults.get('format', 'zip')
         return shutil.make_archive(dir_name,
                                    root_dir=dir_name,
                                    base_dir=None,
-                                   format=arch_format)
+                                   format=self.get_archive_format())
 
 class DbSource(BackupSource):
     def __init__(self, *args, **kwargs):
@@ -272,8 +278,8 @@ class MySQLBackupSource(DbSource):
         return (result == 0)
 
 class DirBackupSource(BackupSource):
-    def copy_data(self, data_dir):
-        """Make directory archive and return archive path.
+    def archive(self, temp_dir):
+        """Archive source directory to temp directory.
         """
         pass
 
@@ -367,8 +373,13 @@ def main():
 
     global echo
 
-    def nice_echo(message):
-        click.echo('* %s' % message)
+    def nice_echo(msg):
+        if msg.startswith('OK:'):
+            click.secho(msg, fg='green')
+        elif msg.startswith('***'):
+            click.secho(msg, fg='red')
+        else:
+            click.echo(msg)
 
     echo = nice_echo
 
@@ -396,13 +407,13 @@ def main():
 
         if errors:
             path = errors.pop('path')
-            click.echo("Errors in configuration file `%s`" % path)
+            echo("Errors in configuration file `%s`" % path)
             for k, v in errors.items():
                 click.echo("- %s" % v)
-            click.echo("\n"
-                       "    Run `coverme --help` for basic examples\n"
-                       "    See also README.md and docs for details\n"
-                       "    https://github.com/05bit/coverme\n")
+            echo("\n"
+                 "    Run `coverme --help` for basic examples\n"
+                 "    See also README.md and docs for details\n"
+                 "    https://github.com/05bit/coverme\n")
             sys.exit(1)
 
         backup.run()
@@ -410,8 +421,7 @@ def main():
     try:
         cli()
     except Exception as e:
-        click.echo("\n"
-                   "Exited with error! %s" % e)
+        echo("*** exited with error! %s" % e)
         sys.exit(1)
 
 if __name__ == '__main__':
