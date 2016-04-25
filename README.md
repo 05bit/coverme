@@ -5,6 +5,7 @@ Lightweight and easy configurable server backup utility.
 
 - [Install](#install)
 - [Basic usage](#basic-usage)
+- [Recipes](#recipes)
 - [Command line help](#command-line-help)
 - [Tips on Amazon services setup](#tips-on-amazon-services-setup)
 - [License](#license)
@@ -129,6 +130,18 @@ coverme --help
     ```
     which coverme
     ```
+
+Questions and answers
+---------------------
+
+### How to provide PostgreSQL password for `pg_dump`?
+
+Use `~/.pgpass` file with `600` permissions, see details here:  
+http://www.postgresql.org/docs/current/static/libpq-pgpass.html
+
+### Why `tags` field is required for `backups` definition?
+
+It should be optional, so it's a bug and will be fixed. For current release please just leave it empty.
 
 Command line help
 -----------------
