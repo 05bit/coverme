@@ -5,7 +5,7 @@ Lightweight and easy configurable server backup utility.
 
 - [Install](#install)
 - [Basic usage](#basic-usage)
-- [Recipes](#recipes)
+- [Questions and answers](#questions-and-answers)
 - [Command line help](#command-line-help)
 - [Tips on Amazon services setup](#tips-on-amazon-services-setup)
 - [License](#license)
