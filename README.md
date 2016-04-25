@@ -35,7 +35,7 @@ Just to make sure that installation is correct run:
 coverme --help
 ```
 
-**Please note!** The examples below do not provide best security practices! Intermediate backups are stored in shared `/tmp` dir and backups are not encrypted.
+**Please note!** Examples below probably do not provide best security practices! Intermediate backups are stored in shared `/tmp` dir and backups are not encrypted before upload.
 
 1. Define your backup rules in JSON or YAML config, e.g. `backup.yml`:
 
@@ -46,6 +46,8 @@ coverme --help
         tmpdir: /tmp
         # cleanup: remove archive after upload or not, default: no
         cleanup: yes
+        # localdir: optional, directory for local backups
+        localdir: backups
         # format: optional, default: zip
         format: gztar
 
