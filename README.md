@@ -6,7 +6,7 @@ Lightweight and easy configurable backup utility.
 Install
 -------
 
-Instal via pip:
+Install via pip:
 
 ```
 pip install coverme
@@ -17,6 +17,8 @@ or if only Python 3.x pip is available:
 ```
 pip3 install coverme
 ```
+
+If you're going to use Amazon services for backup, you'll also need to set up credentials via `aws configure` or manually, see [Tips on Amazon services setup][].
 
 Quickstart
 ----------
@@ -59,12 +61,12 @@ coverme --help
       bucket1:
         type: s3
         region: eu-west-1
-        vault: my-bucket-name  
+        bucket: my-bucket-name
 
       glacier1:
         type: glacier
         region: eu-west-1
-        vault: my-vault-name
+        vault: coverme-test
     ...
     ```
 
@@ -94,6 +96,58 @@ coverme --help
     ```
     which coverme
     ```
+
+Tips on Amazon services setup
+-----------------------------
+
+### How to install `aws` Amazon command line utility?
+
+```
+pip install awscli
+```
+
+### How to create Amazon Glacier vault?
+
+You may create vaults using wizard:  
+https://console.aws.amazon.com/glacier/home
+
+### How to set up Amazon credentials?
+
+```
+aws configure
+```
+
+or manually save credentials to `~/.aws/credentials`:
+
+```
+[default]
+aws_access_key_id = YOUR_ACCESS_KEY
+aws_secret_access_key = YOUR_SECRET_KEY
+
+[another]
+; Just a custom profile called 'another', optional section
+aws_access_key_id = YOUR_ANOTHER_ACCESS_KEY
+aws_secret_access_key = YOUR_ANOTHER_SECRET_KEY
+```
+
+AWS Policy Generator:  
+https://awspolicygen.s3.amazonaws.com/policygen.html
+
+### How to get Amazon credentials?
+
+Use Amazon Identity and Access Management (IAM) service to manage users:  
+https://console.aws.amazon.com/iam/home#users
+
+### How to grant user access to Glacier?
+
+In IAM panel on user's details page:  
+_Permissions tab_ -> _Inline Policies_ (click to expand) -> **Create User Policy**
+
+Then choose _Policy Generator_, and then:
+
+- Select "Amazon Glacier" in dropdown
+- Check required pesmissions or mark all
+- Specify Glacier vault identifier, like that `arn:aws:glacier:eu-west-1:NNNNNNNNNNNN:vaults/coverme-test`, vault should be creatd first!
 
 License
 -------
