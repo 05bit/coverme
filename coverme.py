@@ -103,21 +103,28 @@ class Backup(object):
         """
         for source in self.sources:
             temp_dir = self._make_temp_dir()
-            arch_path = source.archive(temp_dir)
-            if arch_path:
-                vault_keys = source.get_vault_keys()
-                if vault_keys[0] == '*':
-                    vault_keys = self.vaults.keys()
-                for k in vault_keys:
-                    vault = self.vaults[k]
-                    success, data = vault.upload(arch_path)
-                    if success:
-                        echo("OK: uploaded to %s: %s" % (vault, data))
-                    else:
-                        echo("Not uploaded to %s" % vault)
-            else:
-                echo("*** nothing to upload from source %s" % source)
-            # shutil.rmtree(temp_dir, ignore_errors=True)
+            try:
+                self._run_with_temp_dir(source, temp_dir)
+            except Exception as e:
+                log.error(e)
+            finally:
+                shutil.rmtree(temp_dir, ignore_errors=True)
+
+    def _run_with_temp_dir(self, source, temp_dir):
+        arch_path = source.archive(temp_dir)
+        if arch_path:
+            vault_keys = source.get_vault_keys()
+            if vault_keys[0] == '*':
+                vault_keys = self.vaults.keys()
+            for k in vault_keys:
+                vault = self.vaults[k]
+                success, data = vault.upload(arch_path)
+                if success:
+                    echo("OK: uploaded to %s: %s" % (vault, data))
+                else:
+                    echo("Not uploaded to %s" % vault)
+        else:
+            echo("*** nothing to upload from source %s" % source)
 
     def get_temp_dir(self):
         """Get base temp directory path.
