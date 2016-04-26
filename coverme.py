@@ -332,29 +332,17 @@ class BaseVault(object):
 
 class AWSVault(object):
     def __init__(self, backup, **settings):
+        import boto3.session
         self.backup = backup
         self.settings = settings
         params = {
-            'region': settings.get('region'),
-            'access_key_id': settings.get('access_key_id'),
-            'secret_access_key': settings.get('secret_access_key'),
+            'region_name': settings.get('region'),
+            'profile_name': settings.get('profile'),
+            'aws_access_key_id': settings.get('access_key_id'),
+            'aws_secret_access_key': settings.get('secret_access_key'),
         }
-        self.service = self._aws_service(settings['service'], **params)
-
-    @staticmethod
-    def _aws_service(name, region=None,
-                     access_key_id=None,
-                     secret_access_key=None):
-        """Get `boto3` Amazon service manager, e.g. S3 or Glacier.
-
-        Example:
-
-            s3 = get_aws_service('s3')
-        """
-        import boto3
-        return boto3.resource(name, region_name=region,
-                              aws_access_key_id=access_key_id,
-                              aws_secret_access_key=secret_access_key)
+        session = boto3.session.Session(**params)
+        self.service = session.resource(settings['service'])
 
 class GlacierVault(AWSVault):
     def __init__(self, *args, **kwargs):
