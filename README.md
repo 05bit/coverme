@@ -20,6 +20,9 @@ Overview
 * Supports MySQL backups via `mysqldump`
 * Supports PostgreSQL backups via `pg_dump`
 * Supports directory archive
+* Uploading backups to Amazon S3 as private objects
+* Uploading to Amazon Glacier
+* Schedule backups via `crontab` or run manually
 
 Also for Amazon services configuration you may need to install AWS command line utility `awscli`.
 
@@ -119,9 +122,12 @@ coverme --help
     crontab -e
     ```
 
-    Make sure to specify full paths to files, because cron jobs are run without PATH environment setting by default:
+    Make sure to add PATH environment setting, so cron script could found `pg_dump`, `mysqldump` and other shell commands:
 
     ```
+    SHELL=/bin/sh
+    PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+
     # run coverme backups every day at 5:30
     30 5 * * * /usr/local/bin/coverme backup -c /home/myapp/backup.yml
     ```
@@ -151,7 +157,7 @@ sequence of files like that:
     ...
     mysql/dump-31.sql (for 31st day of month)
 
--- and you will get monthly backups rotation. Some months have 31 day while others have 30 or 28/29, but that should not be a real issue in most cases.
+So you will get monthly backups rotation. Some months have 31 day while others have 30 or 28/29, but that should not be a real issue in most cases.
 
 Command line help
 -----------------
