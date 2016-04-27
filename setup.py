@@ -17,17 +17,16 @@ coverme
 
 Lightweight and easy configurable server backup utility.
 
-Install:
+Install::
 
     pip install coverme
 
-Command line help:
+Command line help::
 
     coverme --help
 
 More details available at:
-
-    https://github.com/05bit/coverme
+https://github.com/05bit/coverme
 """
 
 with open('coverme.py') as file:
