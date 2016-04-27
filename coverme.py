@@ -19,7 +19,7 @@ except ImportError:
     import urllib.parse
     urlparse = urllib.parse.urlparse
 
-__version__ = '0.5'
+__version__ = '0.6'
 
 log = logging.getLogger(__name__)
 
@@ -67,7 +67,7 @@ class Backup(object):
             try:
                 with open(path) as f:
                     settings = load(f)
-                    echo("+++ reading config from %s" % path)
+                    echo("... reading config from %s" % path)
             except IOError:
                 return None, {'path': path, '': "No config file found"}
         elif stream:
@@ -105,7 +105,7 @@ class Backup(object):
     def run(self):
         """Run backup for all sources.
         """
-        echo("+++ started at [%s]" % datetime.datetime.now())
+        echo("... started at [%s]" % datetime.datetime.now())
         for source in self.sources:
             temp_dir = _smaketemp(self.get_temp_dir())
             try:
@@ -114,7 +114,7 @@ class Backup(object):
                 echo('*** error in %s: %s' % (source, e))
             finally:
                 shutil.rmtree(temp_dir, ignore_errors=True)
-        echo("+++ completed at [%s]" % datetime.datetime.now())
+        echo("... completed at [%s]" % datetime.datetime.now())
 
     def get_temp_dir(self):
         """Get base temp directory path.
@@ -144,7 +144,7 @@ class Backup(object):
                 if success:
                     echo("+++ uploaded to %s: %s" % (vault, data))
                 else:
-                    echo("Not uploaded to %s" % vault)
+                    echo("*** not uploaded to %s" % vault)
             base_local_dir = source.get_local_dir()
             if base_local_dir:
                 local_dir = os.path.join(base_local_dir,
@@ -209,7 +209,7 @@ class BackupSource(object):
         not_empty = self.copy_data(data_dir)
         if not_empty:
             arch_path = self._make_archive(data_dir)
-            echo("+++ archived %s" % arch_path)
+            echo("... archived %s" % arch_path)
         else:
             arch_path = None
         return arch_path
@@ -313,8 +313,12 @@ class PostgresqlBackupSource(DbSource):
             args.append('--host=%s' % self.url.hostname)
         if self.url.username:
             args.append('--username=%s' % self.url.username)
+        options = self.settings.get('options')
+        if options:
+            args += options.split(' ')
         args.append(self.db)
-        result = subprocess.call(args)
+        echo("... %s with options %s" % (args[0], options or '(none)'))
+        result = subprocess.call(args, stderr=subprocess.STDOUT)
         return (result == 0)
 
 class MySQLBackupSource(DbSource):
@@ -331,8 +335,12 @@ class MySQLBackupSource(DbSource):
             args.append('--user=%s' % self.url.username)
         if self.url.password:
             args.append('--password=%s' % self.url.password)
+        options = self.settings.get('options')
+        if options:
+            args += options.split(' ')
         args.append(self.db)
-        result = subprocess.call(args)
+        echo("... %s with options %s" % (args[0], options or '(none)'))
+        result = subprocess.call(args, stderr=subprocess.STDOUT)
         return (result == 0)
 
 class DirBackupSource(BackupSource):
@@ -355,13 +363,14 @@ class DirBackupSource(BackupSource):
         # `/tmp/dEdjnr/{name from config}`
         from_path = self.settings['path']
         base_name = self._prepare_data_path(temp_dir)
+        echo("... archive directory %s" % from_path)
         arch_path = shutil.make_archive(
             base_name=base_name,
             root_dir=os.path.dirname(from_path),
             base_dir=from_path,
             # logger=log,
             format=self.get_archive_format())
-        echo("+++ archived %s" % arch_path)
+        echo("... archived %s" % arch_path)
         return arch_path
 
     def __str__(self):
