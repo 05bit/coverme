@@ -23,6 +23,22 @@ __version__ = '0.5'
 
 log = logging.getLogger(__name__)
 
+ARCHIVE_EXTENSIONS = {
+    'zip': '.zip',
+    'tar': '.tar',
+    'gztar': '.tar.gz',
+    'bztar': '.tar.bz2',
+}
+
+def register_archive_extension(archive_type, ext):
+    """Register new archive type file name extension, e.g.
+    register_archive_extension('7z', '.7z')
+
+    This should be used together with `shutil.register_archive_format()`
+    to properly construct archive names for uploads.
+    """
+    return ARCHIVE_EXTENSIONS.setdefault(name, ext)
+
 class Backup(object):
     def __init__(self, **settings):
         self.defaults = settings.get('defaults', {})
@@ -100,27 +116,6 @@ class Backup(object):
                 shutil.rmtree(temp_dir, ignore_errors=True)
         echo("+++ completed at [%s]" % datetime.datetime.now())
 
-    def _run_with_temp_dir(self, source, temp_dir):
-        arch_path = source.archive(temp_dir)
-        if arch_path:
-            vault_keys = source.get_vault_keys()
-            if vault_keys[0] == '*':
-                vault_keys = self.vaults.keys()
-            for k in vault_keys:
-                vault = self.vaults[k]
-                upload_path = source.get_upload_path(arch_path)
-                success, data = vault.upload(arch_path,
-                                             upload_path=upload_path)
-                if success:
-                    echo("+++ uploaded to %s: %s" % (vault, data))
-                else:
-                    echo("Not uploaded to %s" % vault)
-            localdir = source.get_local_dir()
-            if localdir:
-                _smove(arch_path, localdir)
-        else:
-            echo("*** nothing to upload from source %s" % source)
-
     def get_temp_dir(self):
         """Get base temp directory path.
         """
@@ -132,6 +127,32 @@ class Backup(object):
         localdir = self.defaults.get('localdir')
         if localdir:
             return os.path.realpath(localdir)
+
+    def _run_with_temp_dir(self, source, temp_dir):
+        """Run backup for source within temp directory.
+        """
+        arch_path = source.archive(temp_dir)
+        if arch_path:
+            upload_name = source.get_archive_fullname()
+            vault_keys = source.get_vault_keys()
+            if vault_keys[0] == '*':
+                vault_keys = self.vaults.keys()
+            for k in vault_keys:
+                vault = self.vaults[k]
+                success, data = vault.upload(arch_path,
+                                             upload_name=upload_name)
+                if success:
+                    echo("+++ uploaded to %s: %s" % (vault, data))
+                else:
+                    echo("Not uploaded to %s" % vault)
+            base_local_dir = source.get_local_dir()
+            if base_local_dir:
+                local_dir = os.path.join(base_local_dir,
+                                         os.path.dirname(upload_name))
+                _smove(arch_path, local_dir)
+                echo("+++ local backup saved to %s" % local_dir)
+        else:
+            echo("*** nothing to upload from source %s" % source)
 
     def _new_sources(self, config_list):
         """Create new sources by list of dicts. Return list
@@ -210,8 +231,10 @@ class BackupSource(object):
         default_format = self.backup.defaults.get('format')
         return self.settings.get('format', default_format) or 'zip'
 
-    def get_archive_name(self):
-        """Get base name for archive.
+    def get_archive_basename(self):
+        """Get base name for archive without extension, e.g. for MySQL
+        dump archive it could return `mysql-2016-10-20.sql` and the derived
+        zip-archive will have name `mysql-2016-10-20.sql.zip`.
         """
         now = datetime.datetime.now()
         params = {
@@ -226,16 +249,21 @@ class BackupSource(object):
         }
         return self.settings['name'].format(**params)
 
-    def get_upload_path(self, archive_path):
-        """Get uploaded relative path by full archive path, constructed
-        as `get_archive_name()` plus archive extension. If `archive_path`
-        is not derived from `get_archive_name()`, return `None`.
+    def get_archive_fullname(self):
+        """Get archive name with extension, e.g. for MySQL
+        dump archive it could return `mysql-2016-10-20.sql`.
+
+        The name pattern configured as `name` parameter in backup
+        source definition in config.
         """
-        try:
-            i = archive_path.rindex(self.get_archive_name())
-            return archive_path[i:]
-        except ValueError:
-            pass
+        name = self.get_archive_basename()
+        aformat = self.get_archive_format()
+        ext = ARCHIVE_EXTENSIONS.get(aformat)
+        if not ext:
+            ext = '.%s' % aformat
+            log.warning("*** archive format `%s` is not registered with"
+                        " `register_archive_extension()`" % aformat)
+        return name + ext
 
     def get_local_dir(self):
         """Get directory path for local backups.
@@ -254,10 +282,10 @@ class BackupSource(object):
                                    format=self.get_archive_format())
 
     def _prepare_data_path(self, base_dir):
-        """Join base dir with :meth:`.get_archive_name()` and create
+        """Join base dir with :meth:`.get_archive_basename()` and create
         all parent dirs in the resulting tree. Return joined path.
         """
-        path = os.path.join(base_dir, self.get_archive_name())
+        path = os.path.join(base_dir, self.get_archive_basename())
         _smakedirs(os.path.dirname(path))
         return path
 
@@ -371,13 +399,13 @@ class GlacierVault(AWSVault):
             'region': self.settings.get('region', 'default region')
         }
 
-    def upload(self, archive_path, upload_path=None):
+    def upload(self, archive_path, upload_name=None):
         """Upload archive to Amazon Glacier. Return 2-tuple:
         ((bool) success, (dict) archive data).
         """
         # self.vault.load()
         with open(archive_path, 'rb') as data:
-            description = upload_path or os.path.basename(archive_path)
+            description = upload_name or os.path.basename(archive_path)
             archive = self.vault.upload_archive(
                 body=data, archiveDescription=description)
         if archive:
@@ -394,11 +422,11 @@ class S3Bucket(AWSVault):
     def __str__(self):
         return "Amazon S3 %(name)s" % self.settings
 
-    def upload(self, archive_path, upload_path=None):
+    def upload(self, archive_path, upload_name=None):
         """Upload archive to Amazon S3. Return 2-tuple:
         ((bool) success, (dict) archive data).
         """
-        key = upload_path or os.path.basename(archive_path)
+        key = upload_name or os.path.basename(archive_path)
         with open(archive_path, 'rb') as data:
             obj = self.bucket.put_object(
                 ACL='private', Body=data, Key=key)
