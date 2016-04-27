@@ -56,13 +56,13 @@ coverme --help
     ```yaml
     ---
     defaults:
-        # tmpdir: base directory for temporary files
+        # tmpdir - base directory for temporary files
         tmpdir: /tmp
-        # cleanup: remove archive after upload or not, default: no
+        # cleanup - remove archive after upload or not, default: no
         cleanup: yes
-        # localdir: optional, directory for local backups
+        # localdir - optional, directory for local backups
         localdir: backups
-        # format: optional, default: zip
+        # format - optional, default: zip
         format: gztar
 
     backups:
@@ -70,30 +70,31 @@ coverme --help
         url: postgres://postgres@127.0.0.1:5432/test
         to: [bucket1]
         name: postgres-{yyyy}-{mm}-{dd}--{HH}-{MM}.sql
-        # tags: optional, no default
+        # tags - optional, no default
         tags: myapp, postgres, db
 
       - type: database
         url: mysql://root@127.0.0.1/test
         to: [bucket1]
         name: mysql-{yyyy}-{mm}-{dd}--{HH}-{MM}.sql
-        # tags: optional, no default
+        # tags - optional, no default
         tags: myapp, mysql, db
 
       - type: dir
         path: /home/myapp/var/www/uploads
         to: [glacier1]
         name: myapp-{yyyy}-{mm}-{dd}--{HH}-{MM}
-        # format: optional, default: zip
+        # format - optional, default: zip
         format: gztar
-        # tags: optional, no default
+        # tags - optional, no default
         tags: myapp, uploads
 
     vaults:
       bucket1:
         service: s3
         region: eu-west-1
-        account: NNNNNNNNNNNN
+        # profile - optional, AWS configuration profile
+        # profile: coverme
         name: coverme-test
 
       glacier1:
