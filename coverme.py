@@ -108,9 +108,9 @@ class Backup(object):
                 vault_keys = self.vaults.keys()
             for k in vault_keys:
                 vault = self.vaults[k]
-                upload_name = source.get_upload_name(arch_path)
+                upload_path = source.get_upload_path(arch_path)
                 success, data = vault.upload(arch_path,
-                                             upload_name=upload_name)
+                                             upload_path=upload_path)
                 if success:
                     echo("+++ uploaded to %s: %s" % (vault, data))
                 else:
@@ -226,7 +226,7 @@ class BackupSource(object):
         }
         return self.settings['name'].format(**params)
 
-    def get_upload_name(self, archive_path):
+    def get_upload_path(self, archive_path):
         """Get uploaded relative path by full archive path, constructed
         as `get_archive_name()` plus archive extension. If `archive_path`
         is not derived from `get_archive_name()`, return `None`.
@@ -371,13 +371,13 @@ class GlacierVault(AWSVault):
             'region': self.settings.get('region', 'default region')
         }
 
-    def upload(self, archive_path, upload_name=None):
+    def upload(self, archive_path, upload_path=None):
         """Upload archive to Amazon Glacier. Return 2-tuple:
         ((bool) success, (dict) archive data).
         """
         # self.vault.load()
         with open(archive_path, 'rb') as data:
-            description = upload_name or os.path.basename(archive_path)
+            description = upload_path or os.path.basename(archive_path)
             archive = self.vault.upload_archive(
                 body=data, archiveDescription=description)
         if archive:
@@ -394,11 +394,11 @@ class S3Bucket(AWSVault):
     def __str__(self):
         return "Amazon S3 %(name)s" % self.settings
 
-    def upload(self, archive_path, upload_name=None):
+    def upload(self, archive_path, upload_path=None):
         """Upload archive to Amazon S3. Return 2-tuple:
         ((bool) success, (dict) archive data).
         """
-        key = upload_name or os.path.basename(archive_path)
+        key = upload_path or os.path.basename(archive_path)
         with open(archive_path, 'rb') as data:
             obj = self.bucket.put_object(
                 ACL='private', Body=data, Key=key)
