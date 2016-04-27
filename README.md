@@ -140,9 +140,18 @@ Questions and answers
 Use `~/.pgpass` file with `600` permissions, see details here:  
 http://www.postgresql.org/docs/current/static/libpq-pgpass.html
 
-### Why `tags` field is required for `backups` definition?
+### How to rotate my backups?
 
-It should be optional, so it's a bug and will be fixed. For current release please just leave it empty.
+It's easy to rotate backups using name pattern. For example, specify
+`mysql/dump-{dd}.sql` as name for MySQL dump archive and you will get
+sequence of files like that:
+
+    mysql/dump-01.sql (for 1st day of month)
+    mysql/dump-02.sql (for 2nd day of month)
+    ...
+    mysql/dump-31.sql (for 31st day of month)
+
+- and you will get monthly backups rotation. Some months have 31 day while others have 30 or 28/29, but that should not be a real issue in most cases.
 
 Command line help
 -----------------
