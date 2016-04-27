@@ -151,7 +151,7 @@ sequence of files like that:
     ...
     mysql/dump-31.sql (for 31st day of month)
 
-- and you will get monthly backups rotation. Some months have 31 day while others have 30 or 28/29, but that should not be a real issue in most cases.
+-- and you will get monthly backups rotation. Some months have 31 day while others have 30 or 28/29, but that should not be a real issue in most cases.
 
 Command line help
 -----------------
