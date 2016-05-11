@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-Asynchronous interface for peewee ORM powered by asyncio.
+Lightweight and easy configurable server backup utility.
 """
 import os
 import sys
@@ -71,6 +71,7 @@ setup(
         'Environment :: Web Environment',
         'Intended Audience :: Developers',
         'License :: OSI Approved :: Apache Software License',
+        'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3',
     ],
     # test_suite='tests',
