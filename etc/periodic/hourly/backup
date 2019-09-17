@@ -1,0 +1,5 @@
+#!/bin/sh
+
+# Important! Script have to be without extension!
+
+/usr/bin/coverme backup -c /etc/coverme/config.yml

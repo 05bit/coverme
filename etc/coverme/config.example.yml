@@ -1,0 +1,17 @@
+---
+defaults:
+    tmpdir: /tmp
+
+backups:
+  - type: database
+    url: postgres://127.0.0.1:5432/database
+    to: [bucket1]
+    name: postgres-{mm}-{dd}.sql
+    tags: postgres
+
+vaults:
+  bucket1:
+    service: s3
+    region: eu-central-1
+    name: example-bucket-egtxvg
+...
