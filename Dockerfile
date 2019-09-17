@@ -8,7 +8,7 @@ RUN apk --no-cache add \
   postgresql \
   python3
 
-RUN pip3 install coverme
+RUN pip3 install coverme>=0.6.2
 
 COPY etc/periodic/ /etc/periodic/
 
