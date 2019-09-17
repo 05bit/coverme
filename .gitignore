@@ -2,6 +2,7 @@
 backup.yml
 
 # Temp
+.DS_Store
 tmp/
 backups/
 

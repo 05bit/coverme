@@ -6,12 +6,12 @@ except ImportError:
 import os
 import sys
 import json
-import yaml
 import logging
 import datetime
 import shutil
 import subprocess
 import tempfile
+import yaml
 
 try:
     from urlparse import urlparse
@@ -19,7 +19,7 @@ except ImportError:
     import urllib.parse
     urlparse = urllib.parse.urlparse
 
-__version__ = '0.6'
+__version__ = '0.6.1'
 
 log = logging.getLogger(__name__)
 
@@ -37,7 +37,7 @@ def register_archive_extension(archive_type, ext):
     This should be used together with `shutil.register_archive_format()`
     to properly construct archive names for uploads.
     """
-    return ARCHIVE_EXTENSIONS.setdefault(name, ext)
+    return ARCHIVE_EXTENSIONS.setdefault(archive_type, ext)
 
 class Backup(object):
     def __init__(self, **settings):
