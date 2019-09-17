@@ -13,3 +13,5 @@ RUN pip3 install coverme
 COPY etc/periodic/ /etc/periodic/
 
 RUN chmod -R +x /etc/periodic/
+
+CMD ["/usr/sbin/crond", "-f"]

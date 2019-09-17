@@ -138,6 +138,29 @@ coverme --help
     which coverme
     ```
 
+Usage with Docker
+-----------------
+
+Docker container is available as [rudyryk/coverme](https://cloud.docker.com/u/rudyryk/repository/docker/rudyryk/coverme).
+
+Here's an example for using in `docker-compose.yml`:
+
+```yaml
+  # ... your services
+
+  coverme:
+    image: rudyryk/coverme
+    restart: unless-stopped
+    depends_on:
+      - postgres
+    environment:
+      PGPASSWORD: ${PGPASSWORD}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+    volumes:
+      - ./coverme/config.yml:/etc/coverme/config.yml
+```
+
 Questions and answers
 ---------------------
 

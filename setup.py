@@ -52,7 +52,7 @@ setup(
     author="Alexey Kinëv",
     author_email='rudy@05bit.com',
     url='https://github.com/05bit/coverme',
-    description=__doc__,
+    description=__doc__.strip(),
     long_description=long_description,
     license='Apache-2.0',
     zip_safe=False,
