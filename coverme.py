@@ -19,7 +19,7 @@ except ImportError:
     import urllib.parse
     urlparse = urllib.parse.urlparse
 
-__version__ = '0.6.1'
+__version__ = '0.6.2'
 
 log = logging.getLogger(__name__)
 
@@ -55,18 +55,18 @@ class Backup(object):
         descriptions.
         """
         if path:
-            name, ext = os.path.splitext(path)
+            _, ext = os.path.splitext(path)
             if not file_format:
                 if ext in ('.json',):
                     file_format = 'json'
                 else:
                     file_format = 'yaml'
 
-            load = yaml.load if file_format == 'yaml' else json.loads
+            load = yaml.safe_load if file_format == 'yaml' else json.loads
 
             try:
-                with open(path) as f:
-                    settings = load(f)
+                with open(path) as fp:
+                    settings = load(fp)
                     echo("... reading config from %s" % path)
             except IOError:
                 return None, {'path': path, '': "No config file found"}
@@ -74,7 +74,7 @@ class Backup(object):
             echo("Reading config from stdin")
             text = '\n'.join([line for line in stream])
             if text.startswith('---'):
-                settings = yaml.load(text)
+                settings = yaml.safe_load(text)
             else:
                 settings = json.loads(text)
         else:
