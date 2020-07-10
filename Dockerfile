@@ -1,4 +1,4 @@
-FROM alpine:3.8
+FROM alpine:3.12
 
 RUN apk --no-cache add \
   bash \
