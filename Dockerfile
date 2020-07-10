@@ -6,7 +6,8 @@ RUN apk --no-cache add \
   ca-certificates \
   curl \
   postgresql \
-  python3
+  python3 \
+  py3-pip
 
 RUN pip3 install coverme>=0.6.2
 
