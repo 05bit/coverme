@@ -59,6 +59,7 @@ setup(
     url='https://github.com/05bit/coverme',
     description=__doc__.strip(),
     long_description=long_description,
+    long_description_content_type='text/x-rst',
     license='Apache-2.0',
     zip_safe=False,
     install_requires=install_requires,
