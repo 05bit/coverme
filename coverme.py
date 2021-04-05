@@ -12,6 +12,7 @@ import shutil
 import subprocess
 import tempfile
 import yaml
+from copy import deepcopy
 
 try:
     from urlparse import urlparse
@@ -40,13 +41,14 @@ def register_archive_extension(archive_type, ext):
     return ARCHIVE_EXTENSIONS.setdefault(archive_type, ext)
 
 class Backup(object):
-    def __init__(self, **settings):
+    def __init__(self, settings, environ):
         self.defaults = settings.get('defaults', {})
-        self.sources = self._new_sources(settings['backups'])
-        self.vaults = self._new_vaults(settings['vaults'])
+        self.sources = self._new_sources(settings['backups'], environ)
+        self.vaults = self._new_vaults(settings['vaults'], environ)
 
     @classmethod
-    def create_with_config(cls, path=None, stream=None, file_format=None):
+    def create_with_config(cls, environ, path=None,
+                           stream=None, file_format=None):
         """Read config and create backup instance with config.
         Return 2-tuple: (instance, errors)
 
@@ -80,10 +82,10 @@ class Backup(object):
         else:
             raise Exception("Either config path or stream must be provided.")
 
-        errors = cls.validate(**settings)
+        errors = cls.validate(settings)
         if not errors:
             try:
-                return cls(**settings), None
+                return cls(settings=settings, environ=environ), None
             except Exception as e:
                 errors = {'': e}
 
@@ -91,7 +93,7 @@ class Backup(object):
         return None, errors
 
     @classmethod
-    def validate(cls, **settings):
+    def validate(cls, settings):
         """Validate settings and show human readable (not developer
         readable) errors.
         """
@@ -154,50 +156,59 @@ class Backup(object):
         else:
             echo("*** nothing to upload from source %s" % source)
 
-    def _new_sources(self, config_list):
+    def _new_sources(self, config_list, environ):
         """Create new sources by list of dicts. Return list
         of `BackupSource` objects.
         """
         sources = []
-        for c in config_list:
-            c_type = c.get('type')
-            if c_type == 'database':
-                url = urlparse(c['url'])
+        for settings in config_list:
+            source_type = settings.get('type')
+            if source_type == 'database':
+                url = urlparse(settings['url'])
                 if url.scheme == 'postgres':
-                    source = PostgresqlBackupSource(self, **c)
+                    source_cls = PostgresqlBackupSource
                 elif url.scheme == 'mysql':
-                    source = MySQLBackupSource(self, **c)
+                    source_cls = MySQLBackupSource
                 else:
                     raise ValueError("Unknown database source scheme `%s`"
                         % url.scheme)
-            elif c_type == 'dir':
-                source = DirBackupSource(self, **c)
-            sources.append(source)
+            elif source_type == 'dir':
+                source_cls = DirBackupSource
+            sources.append(source_cls(
+                self,
+                settings=deepcopy(settings),
+                environ=deepcopy(environ)
+            ))
         return sources
 
-    def _new_vaults(self, config_dict):
+    def _new_vaults(self, config_dict, environ):
         """Create new vaults by dict. Return dict
         of `BaseVault` objects.
         """
         vaults = {}
-        for k, v in config_dict.items():
-            v_service = v.get('service')
+        for k, settings in config_dict.items():
+            v_service = settings.get('service')
             if v_service == 'glacier':
-                vault = GlacierVault(self, **v)
+                vault_cls = GlacierVault
             elif v_service == 's3':
-                vault = S3Bucket(self, **v)
+                vault_cls = S3Bucket
             else:
                 if v_service:
                     raise ValueError("Unknown vault service `%s`" % v_service)
                 else:
                     raise ValueError("Key `service` is missing for vault `%s`" % k)
-            vaults[k] = vault
+            vaults[k] = vault_cls(
+                self,
+                settings=deepcopy(settings),
+                environ=deepcopy(environ)
+            )
         return vaults
 
 class BackupSource(object):
-    def __init__(self, backup, **settings):
+    def __init__(self, backup, settings, environ):
         self.backup = backup
         self.settings = settings
+        self.environ = environ
         self.name_pattern = self.settings.get('name')
         if not self.name_pattern:
             raise ValueError("Missing 'name' key in config for %s" % self)
@@ -313,12 +324,16 @@ class PostgresqlBackupSource(DbSource):
             args.append('--host=%s' % self.url.hostname)
         if self.url.username:
             args.append('--username=%s' % self.url.username)
+        if self.url.password:
+            env = os.environ.copy()
+            env['PGPASSWORD'] = self.url.password
+        # raise Exception(self.url.password)
         options = self.settings.get('options')
         if options:
             args += options.split(' ')
         args.append(self.db)
         echo("... %s with options %s" % (args[0], options or '(none)'))
-        result = subprocess.call(args, stderr=subprocess.STDOUT)
+        result = subprocess.call(args, stderr=subprocess.STDOUT, env=env)
         return (result == 0)
 
 class MySQLBackupSource(DbSource):
@@ -376,16 +391,12 @@ class DirBackupSource(BackupSource):
     def __str__(self):
         return self.settings['path']
 
-class BaseVault(object):
-    def __init__(self, backup, **settings):
-        self.backup = backup
-        self.settings = settings
-
 class AWSVault(object):
-    def __init__(self, backup, **settings):
+    def __init__(self, backup, settings, environ):
         import boto3.session
         self.backup = backup
         self.settings = settings
+        self.environ = environ
         params = {
             'region_name': settings.get('region'),
             'profile_name': settings.get('profile'),
@@ -481,7 +492,8 @@ def main():
     @click.pass_context
     def backup(ctx, config):
         params = get_params(config)
-        backup, errors = Backup.create_with_config(**params)
+        environ = deepcopy(os.environ)
+        tool, errors = Backup.create_with_config(environ, **params)
 
         if errors:
             path = errors.pop('path')
@@ -494,7 +506,7 @@ def main():
                  "    https://github.com/05bit/coverme\n")
             sys.exit(1)
 
-        backup.run()
+        tool.run()
 
     try:
         cli()

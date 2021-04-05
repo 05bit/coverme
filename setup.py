@@ -3,9 +3,14 @@
 """
 Lightweight and easy configurable server backup utility.
 """
-import os
 import sys
 from setuptools import setup
+
+# NOTE: Steps for publishing
+# - pip install twine wheel
+# - python setup.py sdist bdist_wheel
+# - twine check dist/*
+# - twine upload dist/*
 
 PY2 = sys.version_info[0] == 2
 
