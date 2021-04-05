@@ -1,4 +1,4 @@
-FROM alpine:3.12
+FROM alpine:3.13
 
 RUN apk --no-cache add \
   bash \
@@ -9,7 +9,7 @@ RUN apk --no-cache add \
   python3 \
   py3-pip
 
-RUN pip3 install coverme>=0.6.2
+RUN pip3 install coverme>=0.7.0
 
 COPY etc/periodic/ /etc/periodic/
 

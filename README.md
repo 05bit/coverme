@@ -1,6 +1,8 @@
 coverme
 =======
 
+[![PyPi Version](https://img.shields.io/pypi/v/coverme.svg)](https://pypi.python.org/pypi/coverme)
+
 Lightweight and easy configurable server backup utility.
 
 - [Install](#install)
