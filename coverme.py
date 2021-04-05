@@ -20,7 +20,7 @@ except ImportError:
     import urllib.parse
     urlparse = urllib.parse.urlparse
 
-__version__ = '0.6.2'
+__version__ = '0.7.0'
 
 log = logging.getLogger(__name__)
 
@@ -30,6 +30,21 @@ ARCHIVE_EXTENSIONS = {
     'gztar': '.tar.gz',
     'bztar': '.tar.bz2',
 }
+
+def expand_value(value, params):
+    """Expand str / list value with parameters by using str.format()
+    """
+    if not value:
+        return value
+    if isinstance(value, list):
+        value = list(map(
+            lambda s: s.format(**params),
+            value
+        ))
+    else:
+        value = value.format(**params)
+    return value
+
 
 def register_archive_extension(archive_type, ext):
     """Register new archive type file name extension, e.g.
@@ -161,10 +176,10 @@ class Backup(object):
         of `BackupSource` objects.
         """
         sources = []
-        for settings in config_list:
-            source_type = settings.get('type')
+        for conf in config_list:
+            source_type = conf.get('type')
             if source_type == 'database':
-                url = urlparse(settings['url'])
+                url = urlparse(conf['url'])
                 if url.scheme == 'postgres':
                     source_cls = PostgresqlBackupSource
                 elif url.scheme == 'mysql':
@@ -176,7 +191,7 @@ class Backup(object):
                 source_cls = DirBackupSource
             sources.append(source_cls(
                 self,
-                settings=deepcopy(settings),
+                settings=deepcopy(conf),
                 environ=deepcopy(environ)
             ))
         return sources
@@ -186,8 +201,8 @@ class Backup(object):
         of `BaseVault` objects.
         """
         vaults = {}
-        for k, settings in config_dict.items():
-            v_service = settings.get('service')
+        for k, conf in config_dict.items():
+            v_service = conf.get('service')
             if v_service == 'glacier':
                 vault_cls = GlacierVault
             elif v_service == 's3':
@@ -199,7 +214,7 @@ class Backup(object):
                     raise ValueError("Key `service` is missing for vault `%s`" % k)
             vaults[k] = vault_cls(
                 self,
-                settings=deepcopy(settings),
+                settings=deepcopy(conf),
                 environ=deepcopy(environ)
             )
         return vaults
@@ -209,9 +224,24 @@ class BackupSource(object):
         self.backup = backup
         self.settings = settings
         self.environ = environ
-        self.name_pattern = self.settings.get('name')
-        if not self.name_pattern:
-            raise ValueError("Missing 'name' key in config for %s" % self)
+
+    def expand_setting(self, key, default=None):
+        value = self.settings.get(key, default)
+        params = {}
+        if value:
+            now = datetime.datetime.now()
+            params = {
+                'env': self.environ,
+                'tags': self.settings.get('tags', ''),
+                'yyyy': now.year,
+                'mm': '%02d' % now.month,
+                'dd': '%02d' % now.day,
+                'HH': '%02d' % now.hour,
+                'MM': '%02d' % now.minute,
+                'SS': '%02d' % now.second,
+                'UU': now.microsecond,
+            }
+        return expand_value(value, params)
 
     def archive(self, temp_dir):
         """Copy data from source and make archive within temp directory.
@@ -234,31 +264,20 @@ class BackupSource(object):
         """Get vaults keys to upload archive. If not specified in config,
         return ['*'] which mean all available vaults.
         """
-        return self.settings.get('to', ['*'])
+        return self.expand_setting('to', ['*'])
 
     def get_archive_format(self):
         """Get archive format.
         """
-        default_format = self.backup.defaults.get('format')
-        return self.settings.get('format', default_format) or 'zip'
+        default_format = self.backup.defaults.get('format') or 'zip'
+        return self.expand_setting('format') or default_format
 
     def get_archive_basename(self):
         """Get base name for archive without extension, e.g. for MySQL
         dump archive it could return `mysql-2016-10-20.sql` and the derived
         zip-archive will have name `mysql-2016-10-20.sql.zip`.
         """
-        now = datetime.datetime.now()
-        params = {
-            'yyyy': now.year,
-            'mm': '%02d' % now.month,
-            'dd': '%02d' % now.day,
-            'HH': '%02d' % now.hour,
-            'MM': '%02d' % now.minute,
-            'SS': '%02d' % now.second,
-            'UU': now.microsecond,
-            'tags': self.settings.get('tags', ''),
-        }
-        return self.settings['name'].format(**params)
+        return self.expand_setting('name')
 
     def get_archive_fullname(self):
         """Get archive name with extension, e.g. for MySQL
@@ -280,7 +299,7 @@ class BackupSource(object):
         """Get directory path for local backups.
         """
         default = self.backup.get_local_dir()
-        localdir = self.settings.get('localdir', default)
+        localdir = self.expand_setting('localdir') or default
         if localdir:
             return os.path.realpath(localdir)
 
@@ -303,11 +322,12 @@ class BackupSource(object):
 class DbSource(BackupSource):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.url = urlparse(self.settings['url'])
+        self.url = urlparse(self.expand_setting('url'))
         self.db = self.url.path.strip('/')
         if not self.db:
-            raise ValueError("Database is not defined %s" %
-                self.settings['url'])
+            raise ValueError(
+                "Database is not defined %s" % self.settings
+            )
 
     def __str__(self):
         return '%s://%s%s' % (self.url.scheme, self.url.hostname, self.url.path)
@@ -325,10 +345,9 @@ class PostgresqlBackupSource(DbSource):
         if self.url.username:
             args.append('--username=%s' % self.url.username)
         if self.url.password:
-            env = os.environ.copy()
+            env = self.environ.copy()
             env['PGPASSWORD'] = self.url.password
-        # raise Exception(self.url.password)
-        options = self.settings.get('options')
+        options = self.expand_setting('options')
         if options:
             args += options.split(' ')
         args.append(self.db)
@@ -350,7 +369,7 @@ class MySQLBackupSource(DbSource):
             args.append('--user=%s' % self.url.username)
         if self.url.password:
             args.append('--password=%s' % self.url.password)
-        options = self.settings.get('options')
+        options = self.expand_setting('options')
         if options:
             args += options.split(' ')
         args.append(self.db)
@@ -361,7 +380,7 @@ class MySQLBackupSource(DbSource):
 class DirBackupSource(BackupSource):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.path = self.settings.get('path')
+        self.path = self.expand_setting('path')
         if not self.path:
             raise ValueError("Path not specified for directory "
                              "backup source, 'path' key is empty")
@@ -376,7 +395,7 @@ class DirBackupSource(BackupSource):
         # So we make archive from base path `/my/sub/{some dir}`,
         # root path `/my/sub/` and archive name
         # `/tmp/dEdjnr/{name from config}`
-        from_path = self.settings['path']
+        from_path = self.expand_setting('path')
         base_name = self._prepare_data_path(temp_dir)
         echo("... archive directory %s" % from_path)
         arch_path = shutil.make_archive(
@@ -398,25 +417,30 @@ class AWSVault(object):
         self.settings = settings
         self.environ = environ
         params = {
-            'region_name': settings.get('region'),
-            'profile_name': settings.get('profile'),
-            'aws_access_key_id': settings.get('access_key_id'),
-            'aws_secret_access_key': settings.get('secret_access_key'),
+            'region_name': self.expand_setting('region'),
+            'profile_name': self.expand_setting('profile'),
+            'aws_access_key_id': self.expand_setting('access_key_id'),
+            'aws_secret_access_key': self.expand_setting('secret_access_key'),
         }
         session = boto3.session.Session(**params)
         self.service = session.resource(settings['service'])
 
+    def expand_setting(self, key, default=None):
+        value = self.settings.get(key, default)
+        return expand_value(value, {'env': self.environ})
+
+
 class GlacierVault(AWSVault):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        account_id = self.settings.get('account', '')
-        name = self.settings.get('name')
+        account_id = self.expand_setting('account', '')
+        name = self.expand_setting('name')
         self.vault = self.service.Vault(str(account_id), name)
 
     def __str__(self):
         return "Amazon Glacier [%(region)s] %(name)s" % {
             'name': self.vault.name,
-            'region': self.settings.get('region', 'default region')
+            'region': self.settings['region']
         }
 
     def upload(self, archive_path, upload_name=None):
@@ -436,7 +460,7 @@ class GlacierVault(AWSVault):
 class S3Bucket(AWSVault):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        name = self.settings.get('name')
+        name = self.expand_setting('name')
         self.bucket = self.service.Bucket(name)
 
     def __str__(self):
@@ -499,7 +523,7 @@ def main():
             path = errors.pop('path')
             echo("Errors in configuration file `%s`" % path)
             for k, v in errors.items():
-                echo("*** %s" % v)
+                echo("*** %s %s" % (k, v))
             echo("\n"
                  "    Run `coverme --help` for basic examples\n"
                  "    See also README.md and docs for details\n"

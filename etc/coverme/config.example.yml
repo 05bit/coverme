@@ -4,7 +4,7 @@ defaults:
 
 backups:
   - type: database
-    url: postgres://postgres:postgres@127.0.0.1:5432/postgres
+    url: postgres://postgres:postgres@127.0.0.1:5432/{env[POSTGRES_DB]}
     to: [bucket1]
     name: postgres-{mm}-{dd}.sql
     tags: postgres
@@ -13,5 +13,5 @@ vaults:
   bucket1:
     service: s3
     region: eu-central-1
-    name: example-bucket-egtxvg
+    name: "{env[S3_BUCKET]}"
 ...
