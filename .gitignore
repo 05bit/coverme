@@ -1,5 +1,6 @@
-# Local configs
+# Local environment
 backup.yml
+.env
 
 # Temp
 .DS_Store
@@ -15,6 +16,7 @@ __pycache__/
 *.so
 
 # Distribution / packaging
+.venv/
 .Python
 env/
 build/

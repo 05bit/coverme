@@ -3,6 +3,7 @@ try:
     from future.builtins import super
 except ImportError:
     pass
+
 import os
 import sys
 import json
@@ -11,7 +12,6 @@ import datetime
 import shutil
 import subprocess
 import tempfile
-import yaml
 from copy import deepcopy
 
 try:
@@ -20,9 +20,12 @@ except ImportError:
     import urllib.parse
     urlparse = urllib.parse.urlparse
 
-__version__ = '0.7.0'
+import boto3.session
+import yaml
 
-log = logging.getLogger(__name__)
+__version__ = '0.7.1'
+
+LOGS = logging.getLogger('coverme')
 
 ARCHIVE_EXTENSIONS = {
     'zip': '.zip',
@@ -31,9 +34,9 @@ ARCHIVE_EXTENSIONS = {
     'bztar': '.tar.bz2',
 }
 
+
 def expand_value(value, params):
-    """Expand str / list value with parameters by using str.format()
-    """
+    """Expand str / list value with parameters by using str.format()."""
     if not value:
         return value
     if isinstance(value, list):
@@ -55,16 +58,18 @@ def register_archive_extension(archive_type, ext):
     """
     return ARCHIVE_EXTENSIONS.setdefault(archive_type, ext)
 
+
 class Backup(object):
     def __init__(self, settings, environ):
         self.defaults = settings.get('defaults', {})
-        self.sources = self._new_sources(settings['backups'], environ)
-        self.vaults = self._new_vaults(settings['vaults'], environ)
+        self.sources = self._make_sources(settings['backups'], environ)
+        self.vaults = self._make_vaults(settings['vaults'], environ)
 
     @classmethod
     def create_with_config(cls, environ, path=None,
                            stream=None, file_format=None):
-        """Read config and create backup instance with config.
+        """
+        Read config and create backup instance with config.
         Return 2-tuple: (instance, errors)
 
         If configuration contais errors, `instance` is not created,
@@ -109,9 +114,7 @@ class Backup(object):
 
     @classmethod
     def validate(cls, settings):
-        """Validate settings and show human readable (not developer
-        readable) errors.
-        """
+        """Validate settings and show human readable errors."""
         errors = {}
         if not settings.get('backups'):
             errors['backups'] = "Section `backups` is empty"
@@ -120,8 +123,7 @@ class Backup(object):
         return errors
 
     def run(self):
-        """Run backup for all sources.
-        """
+        """Run backup for all sources."""
         echo("... started at [%s]" % datetime.datetime.now())
         for source in self.sources:
             temp_dir = _smaketemp(self.get_temp_dir())
@@ -129,25 +131,22 @@ class Backup(object):
                 self._run_with_temp_dir(source, temp_dir)
             except Exception as e:
                 echo('*** error in %s: %s' % (source, e))
-            finally:
-                shutil.rmtree(temp_dir, ignore_errors=True)
+            # finally:
+            #     shutil.rmtree(temp_dir, ignore_errors=True)
         echo("... completed at [%s]" % datetime.datetime.now())
 
     def get_temp_dir(self):
-        """Get base temp directory path.
-        """
+        """Get base temp directory path."""
         return os.path.realpath(self.defaults.get('tmpdir', '/tmp'))
 
     def get_local_dir(self):
-        """Get directory path for local backups.
-        """
+        """Get directory path for local backups."""
         localdir = self.defaults.get('localdir')
         if localdir:
             return os.path.realpath(localdir)
 
     def _run_with_temp_dir(self, source, temp_dir):
-        """Run backup for source within temp directory.
-        """
+        """Run backup for source within temp directory."""
         arch_path = source.archive(temp_dir)
         if arch_path:
             upload_name = source.get_archive_fullname()
@@ -171,11 +170,13 @@ class Backup(object):
         else:
             echo("*** nothing to upload from source %s" % source)
 
-    def _new_sources(self, config_list, environ):
-        """Create new sources by list of dicts. Return list
+    def _make_sources(self, config_list, environ):
+        """
+        Create new sources by list of dicts. Return list
         of `BackupSource` objects.
         """
         sources = []
+        environ = deepcopy(environ)
         for conf in config_list:
             source_type = conf.get('type')
             if source_type == 'database':
@@ -185,20 +186,21 @@ class Backup(object):
                 elif url.scheme == 'mysql':
                     source_cls = MySQLBackupSource
                 else:
-                    raise ValueError("Unknown database source scheme `%s`"
-                        % url.scheme)
+                    raise ValueError(
+                        "Unknown database source scheme `%s`" % url.scheme
+                    )
             elif source_type == 'dir':
                 source_cls = DirBackupSource
             sources.append(source_cls(
                 self,
                 settings=deepcopy(conf),
-                environ=deepcopy(environ)
+                environ=environ
             ))
         return sources
 
-    def _new_vaults(self, config_dict, environ):
-        """Create new vaults by dict. Return dict
-        of `BaseVault` objects.
+    def _make_vaults(self, config_dict, environ):
+        """
+        Create new vaults by dict. Return dict of `BaseVault` objects.
         """
         vaults = {}
         for k, conf in config_dict.items():
@@ -218,6 +220,7 @@ class Backup(object):
                 environ=deepcopy(environ)
             )
         return vaults
+
 
 class BackupSource(object):
     def __init__(self, backup, settings, environ):
@@ -244,7 +247,8 @@ class BackupSource(object):
         return expand_value(value, params)
 
     def archive(self, temp_dir):
-        """Copy data from source and make archive within temp directory.
+        """
+        Copy data from source and make archive within temp directory.
         """
         data_dir = self._prepare_data_path(temp_dir)
         not_empty = self.copy_data(data_dir)
@@ -256,31 +260,32 @@ class BackupSource(object):
         return arch_path
 
     def copy_data(self, data_dir):
-        """Copy backup data to temp directory.
-        """
+        """Copy backup data to temp directory."""
         raise NotImplementedError
 
     def get_vault_keys(self):
-        """Get vaults keys to upload archive. If not specified in config,
+        """
+        Get vaults keys to upload archive. If not specified in config,
         return ['*'] which mean all available vaults.
         """
         return self.expand_setting('to', ['*'])
 
     def get_archive_format(self):
-        """Get archive format.
-        """
+        """Get archive format."""
         default_format = self.backup.defaults.get('format') or 'zip'
         return self.expand_setting('format') or default_format
 
     def get_archive_basename(self):
-        """Get base name for archive without extension, e.g. for MySQL
+        """
+        Get base name for archive without extension, e.g. for MySQL
         dump archive it could return `mysql-2016-10-20.sql` and the derived
         zip-archive will have name `mysql-2016-10-20.sql.zip`.
         """
         return self.expand_setting('name')
 
     def get_archive_fullname(self):
-        """Get archive name with extension, e.g. for MySQL
+        """
+        Get archive name with extension, e.g. for MySQL
         dump archive it could return `mysql-2016-10-20.sql`.
 
         The name pattern configured as `name` parameter in backup
@@ -291,33 +296,33 @@ class BackupSource(object):
         ext = ARCHIVE_EXTENSIONS.get(aformat)
         if not ext:
             ext = '.%s' % aformat
-            log.warning("*** archive format `%s` is not registered with"
+            LOGS.warning("*** archive format `%s` is not registered with"
                         " `register_archive_extension()`" % aformat)
         return name + ext
 
     def get_local_dir(self):
-        """Get directory path for local backups.
-        """
+        """Get directory path for local backups."""
         default = self.backup.get_local_dir()
         localdir = self.expand_setting('localdir') or default
         if localdir:
             return os.path.realpath(localdir)
 
     def _make_archive(self, dir_name):
-        """Make archive of the specified directory near that directory.
-        """
+        """Make archive of the specified directory near that directory."""
         return shutil.make_archive(dir_name,
                                    root_dir=dir_name,
                                    base_dir=None,
                                    format=self.get_archive_format())
 
     def _prepare_data_path(self, base_dir):
-        """Join base dir with :meth:`.get_archive_basename()` and create
+        """
+        Join base dir with :meth:`.get_archive_basename()` and create
         all parent dirs in the resulting tree. Return joined path.
         """
         path = os.path.join(base_dir, self.get_archive_basename())
         _smakedirs(os.path.dirname(path))
         return path
+
 
 class DbSource(BackupSource):
     def __init__(self, *args, **kwargs):
@@ -332,12 +337,13 @@ class DbSource(BackupSource):
     def __str__(self):
         return '%s://%s%s' % (self.url.scheme, self.url.hostname, self.url.path)
 
+
 class PostgresqlBackupSource(DbSource):
     def copy_data(self, data_dir):
-        """Make database dump via `pg_dump`. Return `True` if not empty.
-        """
+        """Make database dump via `pg_dump`. Return `True` on success."""
         dump_file = self._prepare_data_path(data_dir)
         args = ['pg_dump', '--file=%s' % dump_file]
+        env = self.environ.copy()
         if self.url.port:
             args.append('--port=%s' % self.url.port)
         if self.url.hostname:
@@ -345,20 +351,20 @@ class PostgresqlBackupSource(DbSource):
         if self.url.username:
             args.append('--username=%s' % self.url.username)
         if self.url.password:
-            env = self.environ.copy()
             env['PGPASSWORD'] = self.url.password
         options = self.expand_setting('options')
         if options:
             args += options.split(' ')
         args.append(self.db)
         echo("... %s with options %s" % (args[0], options or '(none)'))
-        result = subprocess.call(args, stderr=subprocess.STDOUT, env=env)
-        return (result == 0)
+        proc = subprocess.Popen(args, env=env)
+        proc.wait()
+        return (proc.returncode == 0)
+
 
 class MySQLBackupSource(DbSource):
     def copy_data(self, data_dir):
-        """Make database dump via `mysqldump` and return archive path.
-        """
+        """Make database dump via `mysqldump`. Return `True` on success."""
         dump_file = self._prepare_data_path(data_dir)
         args = ['mysqldump', '--result-file=%s' % dump_file]
         if self.url.port:
@@ -376,6 +382,7 @@ class MySQLBackupSource(DbSource):
         echo("... %s with options %s" % (args[0], options or '(none)'))
         result = subprocess.call(args, stderr=subprocess.STDOUT)
         return (result == 0)
+
 
 class DirBackupSource(BackupSource):
     def __init__(self, *args, **kwargs):
@@ -410,20 +417,22 @@ class DirBackupSource(BackupSource):
     def __str__(self):
         return self.settings['path']
 
+
 class AWSVault(object):
     def __init__(self, backup, settings, environ):
-        import boto3.session
         self.backup = backup
         self.settings = settings
         self.environ = environ
-        params = {
-            'region_name': self.expand_setting('region'),
-            'profile_name': self.expand_setting('profile'),
-            'aws_access_key_id': self.expand_setting('access_key_id'),
-            'aws_secret_access_key': self.expand_setting('secret_access_key'),
-        }
-        session = boto3.session.Session(**params)
-        self.service = session.resource(settings['service'])
+        session = boto3.session.Session(
+            profile_name=self.expand_setting('profile'),
+        )
+        self.service = session.resource(
+            settings['service'],
+            region_name=self.expand_setting('region'),
+            aws_access_key_id=self.expand_setting('access_key_id'),
+            aws_secret_access_key=self.expand_setting('secret_access_key'),
+            endpoint_url=self.expand_setting('endpoint_url')
+        )
 
     def expand_setting(self, key, default=None):
         value = self.settings.get(key, default)
@@ -451,11 +460,13 @@ class GlacierVault(AWSVault):
         with open(archive_path, 'rb') as data:
             description = upload_name or os.path.basename(archive_path)
             archive = self.vault.upload_archive(
-                body=data, archiveDescription=description)
+                body=data, archiveDescription=description
+            )
         if archive:
             return True, {'id': archive.id, 'description': description}
         else:
             return False, None
+
 
 class S3Bucket(AWSVault):
     def __init__(self, *args, **kwargs):
@@ -467,21 +478,23 @@ class S3Bucket(AWSVault):
         return "Amazon S3 %(name)s" % self.settings
 
     def upload(self, archive_path, upload_name=None):
-        """Upload archive to Amazon S3. Return 2-tuple:
+        """
+        Upload archive to Amazon S3. Return 2-tuple:
         ((bool) success, (dict) archive data).
         """
         key = upload_name or os.path.basename(archive_path)
         with open(archive_path, 'rb') as data:
             obj = self.bucket.put_object(
-                ACL='private', Body=data, Key=key)
+                ACL='private', Body=data, Key=key
+            )
         if obj:
             return True, {'key': obj.key}
         else:
             return False, None
 
+
 def main():
-    """Command-line interface for coverme.
-    """
+    """Command-line interface for coverme."""
     import click
 
     global echo
@@ -505,8 +518,7 @@ def main():
     @click.group()
     @click.pass_context
     def cli(ctx):
-        """Command-line interface for coverme.
-        """
+        """Command-line interface for 'coverme'."""
         pass
 
     @cli.command()
@@ -538,51 +550,49 @@ def main():
         echo("*** exited with error! %s" % e)
         sys.exit(1)
 
-#########
-# Utils #
-#########
 
 def _smakedirs(path):
-    """Safe `os.makedirs()` shortcut. Check if directory does not exist
+    """
+    Safe `os.makedirs()` shortcut. Check if directory does not exist
     and create with `0o700` permission mode.
     """
     if path and not os.path.exists(path):
         os.makedirs(path, mode=0o700)
 
+
 def _smaketemp(base_dir, prefix=''):
-    """Safe make new temp directory under base temp path.
-    """
+    """Safe make new temp directory under base temp path."""
     _smakedirs(base_dir)
     return tempfile.mkdtemp(dir=base_dir, prefix=prefix)
 
+
 def _smove(src, dst_dir):
-    """Move file to destination directory with overwrite.
-    """
+    """Move file to destination directory with overwrite."""
     _smakedirs(dst_dir)
     dst_path = os.path.join(dst_dir, os.path.basename(src))
     if os.path.exists(dst_path):
         os.unlink(dst_path)
     shutil.move(src, dst_dir)
 
+
 def _stdout_logging(level):
     """Setup logging to stdout and return logger's `info` method.
     """
     formatter = logging.Formatter(
         '%(levelname)s %(asctime)s %(module)s %(funcName)s(): %(message)s',
-        '%Y-%m-%d %H:%M:%S')
+        '%Y-%m-%d %H:%M:%S'
+    )
     stdout = logging.StreamHandler()
     stdout.setLevel(level)
     stdout.setFormatter(formatter)
-    log.setLevel(level)
-    log.addHandler(stdout)
-    return log.info
+    LOGS.setLevel(level)
+    LOGS.addHandler(stdout)
+    return LOGS.info
+
 
 # Use echo() instead of print() or log.info()
 echo = _stdout_logging(logging.INFO)
 
-################
-# Run the main #
-################
 
 if __name__ == '__main__':
     main()
