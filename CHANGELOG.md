@@ -1,6 +1,11 @@
 Changelog
 =========
 
+## 0.8
+
+* Changed packaging configuration to `pyproject.toml` format
+* Added support for custom `endpoint_url` for AWS resources
+
 ## 0.6
 
 * Fix: `tags` for backup source is optional field

@@ -23,7 +23,7 @@ except ImportError:
 import boto3.session
 import yaml
 
-__version__ = '0.7.1'
+__version__ = '0.8.0'
 
 LOGS = logging.getLogger('coverme')
 

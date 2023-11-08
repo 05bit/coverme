@@ -1,0 +1,38 @@
+[project]
+name = "coverme"
+authors = [
+    {name = "Alexey Kinëv", email = "rudy@05bit.com"},
+]
+description = "Lightweight and easy configurable server backup utility."
+requires-python = ">=3.7"
+keywords = ["backup", "utility", "aws", "devops"]
+license = {text = "Apache-2.0"}
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Environment :: Web Environment",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 2.7",
+    "Programming Language :: Python :: 3",
+]
+dependencies = [
+    "click>=7.0.0",
+    "pyyaml>=6.0.0",
+    "boto3>=1.28.0",
+]
+dynamic = ["version", "readme"]
+
+[project.scripts]
+coverme = "coverme:main"
+
+[tool.setuptools]
+py-modules = ["coverme"]
+
+[tool.setuptools.dynamic]
+version = {attr = "coverme.__version__"}
+readme = {file = ["README.md"], content-type = "text/markdown"}
+
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
