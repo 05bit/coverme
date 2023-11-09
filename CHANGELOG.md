@@ -1,6 +1,10 @@
 Changelog
 =========
 
+## 0.8.1
+
+* Better handle environment variables in backup source address
+
 ## 0.8
 
 * Changed packaging configuration to `pyproject.toml` format
