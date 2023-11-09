@@ -20,6 +20,12 @@ except ImportError:
     import urllib.parse
     urlparse = urllib.parse.urlparse
 
+try:
+    import dotenv
+    dotenv.load_dotenv()
+except ImportError:
+    pass
+
 import boto3.session
 import yaml
 

@@ -5,6 +5,7 @@ Changelog
 
 * Changed packaging configuration to `pyproject.toml` format
 * Added support for custom `endpoint_url` for AWS resources
+* Optional support for `.env` file
 
 ## 0.6
 
