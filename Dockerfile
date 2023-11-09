@@ -12,8 +12,7 @@ RUN apk --no-cache add \
 
 RUN pip3 install coverme>=0.8.0
 
-COPY etc/periodic/ /etc/periodic/
-
-RUN chmod -R +x /etc/periodic/
+# NOTE: Mount /etc/periodic/ to run the cron jobs
+# COPY etc/periodic/ /etc/periodic/
 
 CMD ["/usr/sbin/crond", "-f"]

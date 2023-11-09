@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 try:
-    from future.builtins import super
+    from future.builtins import super  # type: ignore
 except ImportError:
     pass
 
@@ -15,7 +15,7 @@ import tempfile
 from copy import deepcopy
 
 try:
-    from urlparse import urlparse
+    from urlparse import urlparse  # type: ignore
 except ImportError:
     import urllib.parse
     urlparse = urllib.parse.urlparse

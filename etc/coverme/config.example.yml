@@ -4,7 +4,7 @@ defaults:
 
 backups:
   - type: database
-    url: postgres://postgres:postgres@127.0.0.1:5432/{env[POSTGRES_DB]}
+    url: postgres://postgres:{env[POSTGRES_PASSWORD]}@127.0.0.1:5432/{env[POSTGRES_DB]}
     to: [bucket1]
     name: postgres-{mm}-{dd}.sql
     tags: postgres

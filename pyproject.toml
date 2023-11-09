@@ -34,5 +34,9 @@ version = {attr = "coverme.__version__"}
 readme = {file = ["README.md"], content-type = "text/markdown"}
 
 [build-system]
-requires = ["setuptools", "setuptools-scm"]
+requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
+
+[project.urls]
+"Homepage" = "https://github.com/05bit/coverme"
+"Bug Tracker" = "https://github.com/05bit/coverme/issues"
