@@ -185,15 +185,16 @@ class Backup(object):
         environ = deepcopy(environ)
         for conf in config_list:
             source_type = conf.get('type')
+            source_url = conf['url']
+            scheme, _ = source_url.split('://', 1)
             if source_type == 'database':
-                url = urlparse(conf['url'])
-                if url.scheme == 'postgres':
+                if scheme == 'postgres':
                     source_cls = PostgresqlBackupSource
-                elif url.scheme == 'mysql':
+                elif scheme == 'mysql':
                     source_cls = MySQLBackupSource
                 else:
                     raise ValueError(
-                        "Unknown database source scheme `%s`" % url.scheme
+                        "Unknown scheme in URL `%s`" % source_url
                     )
             elif source_type == 'dir':
                 source_cls = DirBackupSource
